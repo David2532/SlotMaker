@@ -21,6 +21,8 @@
       "@slotmaker/config": ["packages/config/src/index.ts"],
       "@slotmaker/slot-runtime": ["packages/slot-runtime/src/index.ts"],
       "@slotmaker/math-engine": ["packages/math-engine/src/index.ts"],
+      "@slotmaker/animation-system": ["packages/animation-system/src/index.ts"],
+      "@slotmaker/sound-system": ["packages/sound-system/src/index.ts"],
       "@slotmaker/validator": ["packages/validator/src/index.ts"],
       "@slotmaker/exporter": ["packages/exporter/src/index.ts"]
     }

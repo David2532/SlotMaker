@@ -41,11 +41,13 @@ Editor and runtime are strictly separated. The config is the only shared state.
 ```
 slotmaker/
   packages/
-    config/         # SlotProject schema + validation (the source of truth)
-    slot-runtime/   # RNG, grid, cluster detection, cascades, spin orchestration
-    math-engine/    # seeded Monte-Carlo simulation + balance suggestions
-    validator/      # checks, health score, safe auto-fix
-    exporter/       # validated, self-describing JSON bundle
+    config/            # SlotProject schema + validation (the source of truth)
+    slot-runtime/      # RNG, grid, cluster detection, cascades, spin orchestration
+    math-engine/       # seeded Monte-Carlo simulation + balance suggestions
+    animation-system/  # preset registry + buildTimeline() (Phase 2)
+    sound-system/      # sound packs + buildSoundCues() / autoSyncSounds() (Phase 2)
+    validator/         # checks, health score, safe auto-fix
+    exporter/          # validated, self-describing JSON bundle
   apps/
     editor/         # SvelteKit + PixiJS — builder, math lab, validator, export
   templates/cluster-6x5/      # skin-agnostic mechanic descriptor
@@ -108,10 +110,27 @@ balance assistant flags drift instead of trusting a single run.
 
 ---
 
+## Phase 2 — in progress (this branch)
+
+Event-based **animation** and **sound** systems, both fed by the exact same spin
+step sequence as the live preview — so visuals, timeline and audio can never drift:
+
+- `@slotmaker/animation-system` — `buildTimeline(project, round)` turns a played
+  round into ordered, timed events (`spin_start`, staggered `reel_drop` per
+  column, `symbol_land`, `win_detected` / `cluster_remove` / `cascade_drop` per
+  cascade, `scatter_land`, `bonus_trigger`, `coin_collect`, `big_win_start`),
+  plus a swappable preset registry.
+- `@slotmaker/sound-system` — `buildSoundCues(project, timeline)` schedules sounds
+  against the timeline (event start + binding delay); `autoSyncSounds()` is the
+  one-click "Auto Sync" that fills unbound events from a sound pack.
+- **Editor** — the board now plays back off a single timeline clock; new
+  **Animation Timeline** (lanes + live playhead) and **Sound Timeline** panels
+  visualize the last spin.
+
 ## Roadmap (next phases)
 
-- **Phase 2** — animation timeline, sound timeline, symbol states, asset pipeline,
-  responsive HUD editor, move simulation into a Web Worker.
+- **Phase 2 (remaining)** — symbol states, asset pipeline, responsive HUD editor,
+  move simulation into a Web Worker, real audio playback.
 - **Phase 3** — 1M/10M parallel simulation, volatility graphs, bonus-buy & ante
   calculators, auto-balance that edits weights and re-simulates.
 - **Phase 4** — AI agents (theme/asset/animation/sound/QA), one-click reskin,
