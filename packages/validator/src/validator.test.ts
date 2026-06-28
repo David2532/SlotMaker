@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadProject, type SlotProject } from "@slotmaker/config";
-import { autoFix, checkAssetResolution, checkSound, checkSymbolStates, computeHealth } from "./index.js";
+import { buildMathReport, multiSeedSimulate } from "@slotmaker/math-engine";
+import { autoFix, checkAssetResolution, checkMathReport, checkSound, checkSymbolStates, computeHealth } from "./index.js";
 import golden from "../../../projects/golden-goal-rush.json";
 
 const project: SlotProject = loadProject(golden);
@@ -72,6 +73,20 @@ describe("checkAssetResolution", () => {
   it("blocks production when critical assets are not real", () => {
     const issues = checkAssetResolution(project, { profile: "production" });
     expect(issues.some((i) => i.category === "export" && i.severity === "error" && /Production export blocked/.test(i.message))).toBe(true);
+  });
+});
+
+describe("checkMathReport", () => {
+  it("warns when there is no math report at all", () => {
+    const issues = checkMathReport(project);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.message).toMatch(/No math report/);
+  });
+
+  it("flags a low-sample report", () => {
+    const report = buildMathReport(project, multiSeedSimulate(project, { spins: 2000, seeds: 2 }));
+    const issues = checkMathReport(project, report);
+    expect(issues.some((i) => /sample size/i.test(i.message))).toBe(true);
   });
 });
 

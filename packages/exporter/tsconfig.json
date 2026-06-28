@@ -9,6 +9,7 @@
   "references": [
     { "path": "../config" },
     { "path": "../validator" },
-    { "path": "../asset-pipeline" }
+    { "path": "../asset-pipeline" },
+    { "path": "../math-engine" }
   ]
 }

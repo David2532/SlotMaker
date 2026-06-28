@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { simulate } from "@slotmaker/math-engine";
+import { buildMathReport, multiSeedSimulate } from "@slotmaker/math-engine";
 import { exportBundle, serializeBundle } from "@slotmaker/exporter";
 import { ROOT, loadProjectArg } from "./lib.js";
 
@@ -10,10 +10,11 @@ const force = args.includes("--force");
 const projectArg = args.find((a) => !a.startsWith("--"));
 
 const project = loadProjectArg(projectArg);
-const sim = simulate(project, { spins: 50_000, seed: 1 });
-const stats = { rtp: sim.rtp, hitFrequency: sim.hitFrequency, maxWin: sim.maxWin };
+// Build a real (multi-seed) math report and embed it in the bundle.
+const mathReport = buildMathReport(project, multiSeedSimulate(project, { spins: 20_000, seeds: 3 }), { bonusBuyRounds: 10_000 });
+const stats = { rtp: mathReport.rtp.observed, hitFrequency: mathReport.hitFrequency.mean, maxWin: mathReport.maxWin };
 
-const result = exportBundle(project, { stats, force });
+const result = exportBundle(project, { stats, mathReport, force });
 
 console.log(`\n  SLOT FACTORY — Export Center`);
 console.log(`  Project: ${project.projectName}  (health ${result.bundle.manifest.health}/100)`);

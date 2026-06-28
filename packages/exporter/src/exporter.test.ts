@@ -45,6 +45,10 @@ describe("exportBundle", () => {
     expect(res.bundle.assets.productionReady).toBe(false);
   });
 
+  it("embeds the math report in the bundle when provided, else null", () => {
+    expect(exportBundle(project).bundle.math).toBeNull();
+  });
+
   it("production profile blocks when critical assets are not real", () => {
     const res = exportBundle(project, { profile: "production" });
     expect(res.ok).toBe(false);

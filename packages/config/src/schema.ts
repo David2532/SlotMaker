@@ -115,6 +115,8 @@ export const MathConfig = z.object({
   freeSpins: FreeSpinsConfig.default({}),
   /** Coins required on screen to collect (coin collector feature). */
   coinCollectThreshold: z.number().int().min(1).default(4),
+  /** Configured bonus-buy price in bet multiples (used by the Bonus Buy calculator). */
+  bonusBuyCost: z.number().min(0).default(100),
 });
 export type MathConfig = z.infer<typeof MathConfig>;
 

@@ -39,7 +39,8 @@ for (const b of r.distribution) {
 
 console.log(`\n  Balance suggestions:`);
 for (const s of suggestBalance(project, r)) {
-  console.log(`    ${s.severity === "warning" ? "⚠" : "ℹ"} ${s.message}`);
+  console.log(`    ${s.severity === "warning" ? "⚠" : "ℹ"} ${s.action}`);
+  console.log(`       → ${s.impact}`);
 }
 
 console.log(`\n  Simulated ${spins.toLocaleString()} spins in ${ms.toFixed(0)} ms (${(spins / (ms / 1000)).toFixed(0)} spins/s)\n`);

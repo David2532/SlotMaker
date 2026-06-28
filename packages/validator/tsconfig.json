@@ -6,5 +6,9 @@
     "outDir": "dist"
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../config" }, { "path": "../asset-pipeline" }]
+  "references": [
+    { "path": "../config" },
+    { "path": "../asset-pipeline" },
+    { "path": "../math-engine" }
+  ]
 }

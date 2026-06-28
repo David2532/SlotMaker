@@ -2,7 +2,8 @@
   import { onMount } from "svelte";
   import { loadProject, type SlotProject } from "@slotmaker/config";
   import { spin, type RoundResult } from "@slotmaker/slot-runtime";
-  import { simulate, type SimResult } from "@slotmaker/math-engine";
+  import type { MathReport, MultiSeedResult } from "@slotmaker/math-engine";
+  import SimWorker from "$lib/sim.worker?worker";
   import { buildTimeline, eventToSymbolState, type Timeline } from "@slotmaker/animation-system";
   import {
     autoSyncSounds,
@@ -45,8 +46,13 @@
   let muteAll = $state(false);
   let player: SoundPlayer | null = null;
 
-  let sim = $state<SimResult | null>(null);
-  let simBusy = $state(false);
+  // Heavy Math Lab — runs in a Web Worker so the editor never freezes.
+  let math = $state<MathReport | null>(null);
+  let multi = $state<MultiSeedResult | null>(null);
+  let mathBusy = $state(false);
+  let mathProgress = $state(0);
+  let seedCount = $state(5);
+  let worker: Worker | null = null;
 
   // Phase 2B: asset system. Demo resolution uses the dev pack (generated assets).
   const devPack = createGoldenGoalRushDevPack();
@@ -56,8 +62,9 @@
   const health = $derived(
     computeHealth(
       project,
-      sim ? { rtp: sim.rtp, hitFrequency: sim.hitFrequency, maxWin: sim.maxWin } : undefined,
+      math ? { rtp: math.rtp.observed, hitFrequency: math.hitFrequency.mean, maxWin: math.maxWin } : undefined,
       { profile: exportProfile, devPack },
+      math ?? undefined,
     ),
   );
 
@@ -174,11 +181,12 @@
     play();
   }
 
-  async function runSim(spins: number) {
-    simBusy = true;
-    await new Promise((res) => setTimeout(res, 10));
-    sim = simulate(project, { spins, seed: 1 });
-    simBusy = false;
+  function runMath(spins: number) {
+    if (!worker || mathBusy) return;
+    mathBusy = true;
+    mathProgress = 0;
+    // Snapshot the project (plain object) so it can cross the worker boundary.
+    worker.postMessage({ project: JSON.parse(JSON.stringify(project)), spins, seeds: seedCount });
   }
 
   function syncPlayer() {
@@ -194,8 +202,8 @@
     if (round && timeline) cues = buildSoundCues(project, timeline);
   }
   function doExport() {
-    const stats = sim ? { rtp: sim.rtp, hitFrequency: sim.hitFrequency, maxWin: sim.maxWin } : undefined;
-    const res = exportBundle(project, { profile: exportProfile, stats, devPack, force: true });
+    const stats = math ? { rtp: math.rtp.observed, hitFrequency: math.hitFrequency.mean, maxWin: math.maxWin } : undefined;
+    const res = exportBundle(project, { profile: exportProfile, stats, devPack, mathReport: math ?? undefined, force: true });
     const blob = new Blob([serializeBundle(res.bundle)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -213,11 +221,23 @@
       resolve: (cue) => resolveSoundCue(project, cue.event as AnimationEvent, { devPack }).uri ?? null,
       masterVolume: masterVol,
     });
+    worker = new SimWorker();
+    worker.onmessage = (e: MessageEvent) => {
+      const msg = e.data;
+      if (msg.type === "progress") mathProgress = msg.done / msg.total;
+      else if (msg.type === "done") {
+        multi = msg.multi;
+        math = msg.report;
+        mathBusy = false;
+        mathProgress = 1;
+      }
+    };
     syncPlayer();
     doSpin();
     return () => {
       stopClock();
       if (countTimer) clearInterval(countTimer);
+      worker?.terminate();
     };
   });
 
@@ -235,7 +255,7 @@
 <div class="app">
   <header>
     <h1><span class="gold">SLOT</span> FACTORY</h1>
-    <span class="tag">Editor · Phase 2C</span>
+    <span class="tag">Editor · Phase 3</span>
     <span class="spacer"></span>
     <span class="proj">{project.projectName}</span>
     <span class="muted">{project.template} · {project.theme}</span>
@@ -286,23 +306,24 @@
     <aside class="panel">
       <h2>Math Lab</h2>
       <div class="simbtns">
-        <button onclick={() => runSim(1000)} disabled={simBusy}>Run 1k</button>
-        <button onclick={() => runSim(10000)} disabled={simBusy}>Run 10k</button>
-        <button onclick={() => runSim(100000)} disabled={simBusy}>Run 100k</button>
+        <button onclick={() => runMath(1000)} disabled={mathBusy}>1k</button>
+        <button onclick={() => runMath(10000)} disabled={mathBusy}>10k</button>
+        <button onclick={() => runMath(100000)} disabled={mathBusy}>100k</button>
+        <button onclick={() => runMath(1000000)} disabled={mathBusy}>1M</button>
       </div>
-      {#if simBusy}
-        <p class="muted">Simulating…</p>
-      {:else if sim}
-        <div class="row"><span>RTP</span><b class="gold">{pct(sim.rtp)}</b></div>
-        <div class="row"><span>Hit freq</span><b>{pct(sim.hitFrequency)}</b></div>
-        <div class="row"><span>Bonus freq</span><b>1 / {Number.isFinite(sim.bonusFrequency) ? sim.bonusFrequency.toFixed(0) : "—"}</b></div>
-        <div class="row"><span>Max win</span><b>{sim.maxWin.toFixed(0)}×</b></div>
-        <h3>Contribution</h3>
-        <div class="row"><span>Base</span><b>{pct(sim.contribution.base)}</b></div>
-        <div class="row"><span>Free spins</span><b>{pct(sim.contribution.freeSpins)}</b></div>
-        <div class="row"><span>Coins</span><b>{pct(sim.contribution.coin)}</b></div>
+      <label class="vol">seeds <input type="range" min="1" max="20" step="1" bind:value={seedCount} disabled={mathBusy} /> {seedCount}</label>
+      {#if mathBusy}
+        <div class="bar" style="margin-top:8px"><div class="fill" style={`width:${mathProgress * 100}%`}></div></div>
+        <p class="muted small">Simulating {seedCount} seed(s) in a worker… {Math.round(mathProgress * 100)}%</p>
+      {:else if math}
+        <div class="row"><span>RTP (observed)</span><b class="gold">{pct(math.rtp.observed)}</b></div>
+        <div class="row"><span>Target</span><b>{math.rtp.target}%</b></div>
+        <div class="row"><span>95% band</span><b>{pct(math.rtp.confidenceLow)}–{pct(math.rtp.confidenceHigh)}</b></div>
+        <div class="row"><span>Spread</span><b>{pct(math.rtp.min)} … {pct(math.rtp.max)}</b></div>
+        <div class="row"><span>Sample</span><b class={math.lowSample ? "off" : "on"}>{math.sampleSize.toLocaleString()} · {math.seedCount} seeds</b></div>
+        {#if math.lowSample}<p class="muted small">⚠ sample too low — run 100k+ for a trustworthy RTP</p>{/if}
       {:else}
-        <p class="muted">Run a simulation to measure RTP. Never feel the math — simulate it.</p>
+        <p class="muted">Run a worker simulation to measure RTP. Never feel the math — simulate it.</p>
       {/if}
 
       <h2>Health <span class="score">{health.score}/100</span></h2>
@@ -379,6 +400,59 @@
       <p class="muted small">{cues.length} cue(s) this spin · mode: {audioMode}{muteAll ? " · muted" : ""}</p>
     </div>
   </section>
+
+  {#if math}
+    <section class="mathlab">
+      <div class="panel">
+        <h2>Win Distribution</h2>
+        {#each math.distribution as b (b.label)}
+          {@const maxc = Math.max(...math.distribution.map((x) => x.count), 1)}
+          <div class="hrow"><span>{b.label}</span><div class="bar"><div class="fill" style={`width:${(b.count / maxc) * 100}%`}></div></div><b>{b.count.toLocaleString()}</b></div>
+        {/each}
+        <h3>Rates</h3>
+        <div class="row"><span>Dead</span><b>{pct(math.rates.dead)}</b></div>
+        <div class="row"><span>Small (≤5×)</span><b>{pct(math.rates.small)}</b></div>
+        <div class="row"><span>Medium (5–20×)</span><b>{pct(math.rates.medium)}</b></div>
+        <div class="row"><span>Big (&gt;20×)</span><b>{pct(math.rates.big)}</b></div>
+        <div class="row"><span>Max win</span><b>{math.maxWin.toFixed(0)}×</b></div>
+      </div>
+
+      <div class="panel">
+        <h2>Feature Contribution</h2>
+        <div class="row"><span>Base game</span><b>{pct(math.contribution.base)}</b></div>
+        <div class="row"><span>Free spins</span><b>{pct(math.contribution.freeSpins)}</b></div>
+        <div class="row"><span>Coin feature</span><b>{pct(math.contribution.coin)}</b></div>
+        <h3>Volatility <span class="score">{math.volatility.label}</span></h3>
+        <div class="row"><span>Std dev / spin</span><b>{math.volatility.stdDev.toFixed(2)}×</b></div>
+        <div class="row"><span>Skew</span><b>{math.volatility.skew.toFixed(1)}</b></div>
+        <div class="row"><span>Big-win dependency</span><b>{pctI(math.volatility.bigWinDependency)}</b></div>
+        <div class="row"><span>Feature dependency</span><b>{pctI(math.volatility.featureDependency)}</b></div>
+        <div class="row"><span>vs config ({math.volatility.configured})</span><b class={math.volatility.matchesConfig ? "on" : "off"}>{math.volatility.matchesConfig ? "match" : "conflict"}</b></div>
+      </div>
+
+      <div class="panel">
+        <h2>Bonus Buy</h2>
+        <div class="row"><span>Expected value</span><b>{math.bonusBuy.expectedValue.toFixed(1)}×</b></div>
+        <div class="row"><span>Fair price</span><b>{math.bonusBuy.fairPrice.toFixed(1)}×</b></div>
+        <div class="row"><span>Configured price</span><b>{math.bonusBuy.configuredPrice}×</b></div>
+        <div class="row"><span>Buy RTP</span><b class="gold">{Number.isFinite(math.bonusBuy.buyRtp) ? pct(math.bonusBuy.buyRtp) : "—"}</b></div>
+        <div class="row"><span>House edge</span><b>{pctI(math.bonusBuy.houseEdge)}</b></div>
+        {#each math.bonusBuy.warnings as w (w)}<p class="muted small">⚠ {w}</p>{/each}
+      </div>
+
+      <div class="panel">
+        <h2>Balance Suggestions</h2>
+        {#if math.suggestions.length === 0}<p class="muted">Nothing to suggest — math is on target.</p>{/if}
+        {#each math.suggestions as s (s.action)}
+          <div class="suggest {s.severity}">
+            <div class="act">{s.severity === "warning" ? "⚠" : "ℹ"} {s.action}</div>
+            <div class="muted small">{s.impact}</div>
+          </div>
+        {/each}
+        <p class="muted small">Suggestions only — re-simulate after any change.</p>
+      </div>
+    </section>
+  {/if}
 </div>
 
 <style>
@@ -393,6 +467,12 @@
   .proj { font-weight: 700; }
   main { display: grid; grid-template-columns: 260px 1fr 300px; gap: 14px; padding: 14px; align-items: start; }
   .timelines { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 0 14px 18px; }
+  .mathlab { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 0 14px 18px; align-items: start; }
+  .mathlab h2 .score { float: right; color: #f5c542; text-transform: none; }
+  .suggest { padding: 6px 0; border-bottom: 1px dashed #16210f; }
+  .suggest .act { font-size: 12px; }
+  .suggest.warning .act { color: #f5c542; }
+  @media (max-width: 1100px) { .mathlab { grid-template-columns: 1fr 1fr; } }
   .panel { background: #0e140c; border: 1px solid #1c2b1a; border-radius: 12px; padding: 14px; }
   .panel h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 1px; }
   .panel h2 .score { color: #f5c542; float: right; }
