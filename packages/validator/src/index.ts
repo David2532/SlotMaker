@@ -1,6 +1,7 @@
 export {
   collectIssues,
   checkAssets,
+  checkSymbolStates,
   checkMath,
   checkAnimation,
   checkSound,

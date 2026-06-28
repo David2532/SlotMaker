@@ -4,7 +4,14 @@
   import { spin, type RoundResult } from "@slotmaker/slot-runtime";
   import { simulate, type SimResult } from "@slotmaker/math-engine";
   import { buildTimeline, type Timeline } from "@slotmaker/animation-system";
-  import { autoSyncSounds, buildSoundCues, type SoundCue } from "@slotmaker/sound-system";
+  import {
+    autoSyncSounds,
+    buildSoundCues,
+    createSoundPlayer,
+    createHtmlAudioSink,
+    type SoundCue,
+    type SoundPlayer,
+  } from "@slotmaker/sound-system";
   import { autoFix, computeHealth } from "@slotmaker/validator";
   import { exportBundle, serializeBundle } from "@slotmaker/exporter";
   import golden from "@project";
@@ -18,11 +25,18 @@
   let cues = $state<SoundCue[]>([]);
   let seed = $state(1);
 
-  // Board playback is driven by a single clock (playheadMs) shared with the timeline.
+  // Single playback clock shared by board, timeline and sound cues.
   type Mut = { tMs: number; grid?: string[]; highlight?: number[] };
   let muts = $state<Mut[]>([]);
   let playheadMs = $state(0);
+  let isPlaying = $state(false);
   let clock: ReturnType<typeof setInterval> | null = null;
+
+  // Audio runtime (placeholder-safe). "simulate" = visual only; "audio" = play.
+  let audioMode = $state<"simulate" | "audio">("simulate");
+  let masterVol = $state(0.8);
+  let muteAll = $state(false);
+  let player: SoundPlayer | null = null;
 
   let sim = $state<SimResult | null>(null);
   let simBusy = $state(false);
@@ -30,6 +44,9 @@
   const health = $derived(
     computeHealth(project, sim ? { rtp: sim.rtp, hitFrequency: sim.hitFrequency, maxWin: sim.maxWin } : undefined),
   );
+
+  const isPlaceholder = (f: string) => !f.includes("/") && !/^https?:/.test(f);
+  const hasPlaceholderAudio = $derived(project.sounds.some((s) => isPlaceholder(s.file)));
 
   const currentGrid = $derived.by(() => {
     let g = round?.steps[0]?.grid ?? [];
@@ -40,6 +57,14 @@
     let h: number[] = [];
     for (const m of muts) if (m.tMs <= playheadMs && m.highlight) h = m.highlight;
     return new Set(h);
+  });
+  const activeEvent = $derived.by(() => {
+    if (!timeline) return null;
+    let cur: string | null = null;
+    for (const e of timeline.events) {
+      if (e.tStartMs <= playheadMs && playheadMs < e.tStartMs + e.durationMs) cur = e.event;
+    }
+    return cur;
   });
 
   function buildMuts(r: RoundResult, tl: Timeline): Mut[] {
@@ -57,18 +82,36 @@
     return m.sort((a, b) => a.tMs - b.tMs);
   }
 
-  function startClock() {
+  function stopClock() {
     if (clock) clearInterval(clock);
+    clock = null;
+    isPlaying = false;
+  }
+
+  function tick() {
+    const total = timeline?.totalMs ?? 0;
+    const prev = playheadMs;
+    playheadMs = Math.min(playheadMs + 33, total);
+    // Fire any cue we just crossed.
+    for (const c of cues) {
+      if (c.tMs > prev && c.tMs <= playheadMs && player) player.playCue(c);
+    }
+    if (playheadMs >= total) stopClock();
+  }
+
+  function play() {
+    if (!timeline) return;
+    if (playheadMs >= timeline.totalMs) playheadMs = 0;
+    stopClock();
+    isPlaying = true;
+    clock = setInterval(tick, 33);
+  }
+  function pause() {
+    stopClock();
+  }
+  function reset() {
+    stopClock();
     playheadMs = 0;
-    clock = setInterval(() => {
-      const total = timeline?.totalMs ?? 0;
-      playheadMs += 33;
-      if (playheadMs >= total && clock) {
-        playheadMs = total;
-        clearInterval(clock);
-        clock = null;
-      }
-    }, 33);
   }
 
   function doSpin() {
@@ -78,11 +121,8 @@
     timeline = buildTimeline(project, r);
     cues = buildSoundCues(project, timeline);
     muts = buildMuts(r, timeline);
-    startClock();
-  }
-
-  function replay() {
-    if (timeline) startClock();
+    playheadMs = 0;
+    play();
   }
 
   async function runSim(spins: number) {
@@ -90,6 +130,11 @@
     await new Promise((res) => setTimeout(res, 10));
     sim = simulate(project, { spins, seed: 1 });
     simBusy = false;
+  }
+
+  function syncPlayer() {
+    player?.setMasterVolume(masterVol);
+    player?.setMuted(muteAll || audioMode === "simulate");
   }
 
   function doAutoFix() {
@@ -112,10 +157,23 @@
   }
 
   onMount(() => {
+    // Resolver returns null for placeholder (bare) filenames → safe silent fallback.
+    player = createSoundPlayer({
+      sink: createHtmlAudioSink("/sounds/"),
+      resolve: (f) => (isPlaceholder(f) ? null : f),
+      masterVolume: masterVol,
+    });
+    syncPlayer();
     doSpin();
-    return () => {
-      if (clock) clearInterval(clock);
-    };
+    return () => stopClock();
+  });
+
+  // Keep the audio runtime in sync with the mixer controls.
+  $effect(() => {
+    void masterVol;
+    void muteAll;
+    void audioMode;
+    syncPlayer();
   });
 
   const pct = (n: number) => `${n.toFixed(2)}%`;
@@ -124,7 +182,7 @@
 <div class="app">
   <header>
     <h1><span class="gold">SLOT</span> FACTORY</h1>
-    <span class="tag">Editor · Phase 2</span>
+    <span class="tag">Editor · Phase 2A</span>
     <span class="spacer"></span>
     <span class="proj">{project.projectName}</span>
     <span class="muted">{project.template} · {project.theme}</span>
@@ -159,10 +217,9 @@
         <div class="readout">
           <div class="big {round && round.totalWin > 0 ? 'win' : ''}">{round ? round.totalWin.toFixed(2) : "0.00"}× WIN</div>
           <div class="muted">
-            t {Math.round(playheadMs)}/{timeline ? Math.round(timeline.totalMs) : 0}ms
-            {#if round?.freeSpinsTriggered}· <b class="gold">FREE SPINS ×{round.freeSpinsCount}</b>{/if}
-            {#if round?.capped}· <b class="gold">MAX WIN</b>{/if}
-            <button class="mini" onclick={replay}>↻ replay</button>
+            {#if round?.freeSpinsTriggered}<b class="gold">FREE SPINS ×{round.freeSpinsCount}</b> · {/if}
+            {#if round?.capped}<b class="gold">MAX WIN</b> · {/if}
+            active: <b>{activeEvent ?? "—"}</b>
           </div>
         </div>
       </div>
@@ -206,26 +263,48 @@
 
   <section class="timelines">
     <div class="panel">
-      <h2>Animation Timeline</h2>
+      <h2>Animation Timeline
+        <span class="transport">
+          <button class="mini" onclick={play} disabled={isPlaying}>▶ Play</button>
+          <button class="mini" onclick={pause} disabled={!isPlaying}>⏸ Pause</button>
+          <button class="mini" onclick={reset}>⟲ Reset</button>
+        </span>
+      </h2>
+      <div class="muted small">
+        total {timeline ? Math.round(timeline.totalMs) : 0}ms · playhead {Math.round(playheadMs)}ms · active <b class="gold">{activeEvent ?? "—"}</b>
+      </div>
       {#if timeline}
         <TimelineView {timeline} {cues} {playheadMs} />
       {/if}
     </div>
     <div class="panel">
-      <h2>Sound Timeline <button class="mini" onclick={doAutoSync}>Auto-Sync</button></h2>
+      <h2>Sound Timeline
+        <span class="transport">
+          <button class="mini" onclick={doAutoSync}>Auto-Sync</button>
+        </span>
+      </h2>
+      <div class="sndctl">
+        <label class="seg">
+          <button class="mini {audioMode === 'simulate' ? 'on' : ''}" onclick={() => (audioMode = "simulate")}>Simulate</button>
+          <button class="mini {audioMode === 'audio' ? 'on' : ''}" onclick={() => (audioMode = "audio")}>Play Audio</button>
+        </label>
+        <label class="chk"><input type="checkbox" bind:checked={muteAll} /> Mute All</label>
+        <label class="vol">Master <input type="range" min="0" max="1" step="0.05" bind:value={masterVol} /> {Math.round(masterVol * 100)}%</label>
+        {#if hasPlaceholderAudio}<span class="badge">⚠ placeholder audio (silent)</span>{/if}
+      </div>
       <div class="sndhead"><span>Event</span><span>File</span><span>Delay</span><span>Vol</span></div>
       <div class="sndlist">
         {#each project.sounds as s (s.event)}
           {@const cue = cues.find((c) => c.event === s.event)}
           <div class="sndrow {cue && cue.tMs <= playheadMs ? 'played' : ''}">
             <span>{s.event}</span>
-            <span class="file">{s.file}</span>
+            <span class="file">{s.file}{#if isPlaceholder(s.file)}<span class="ph">•</span>{/if}</span>
             <span>{s.delayMs}ms</span>
             <span>{Math.round(s.volume * 100)}%</span>
           </div>
         {/each}
       </div>
-      <p class="muted small">{cues.length} cue(s) scheduled this spin · sounds pinned to events, not hand-timed</p>
+      <p class="muted small">{cues.length} cue(s) this spin · mode: {audioMode}{muteAll ? " · muted" : ""}</p>
     </div>
   </section>
 </div>
@@ -245,6 +324,7 @@
   .panel { background: #0e140c; border: 1px solid #1c2b1a; border-radius: 12px; padding: 14px; }
   .panel h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 1px; }
   .panel h2 .score { color: #f5c542; float: right; }
+  .panel h2 .transport { float: right; display: flex; gap: 6px; }
   .panel h3 { font-size: 12px; margin: 14px 0 6px; color: #8a9388; text-transform: uppercase; }
   .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; border-bottom: 1px dashed #16210f; }
   .row .on { color: #2d9c6f; }
@@ -263,14 +343,21 @@
   button:hover { border-color: #2d9c6f; }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
   button.primary { background: #2d6a4f; border-color: #2d9c6f; font-weight: 700; }
-  button.mini { padding: 2px 7px; font-size: 11px; float: right; }
+  button.mini { padding: 2px 8px; font-size: 11px; }
+  button.mini.on { background: #2d6a4f; border-color: #2d9c6f; color: #fff; }
   .hrow { display: grid; grid-template-columns: 70px 1fr 24px; align-items: center; gap: 8px; font-size: 12px; padding: 2px 0; }
   .bar { height: 7px; background: #16210f; border-radius: 4px; overflow: hidden; }
   .fill { height: 100%; background: linear-gradient(90deg, #2d6a4f, #f5c542); }
   .actions { margin-top: 12px; }
+  .sndctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; font-size: 12px; }
+  .sndctl .seg { display: inline-flex; gap: 4px; }
+  .sndctl .chk { display: inline-flex; align-items: center; gap: 4px; }
+  .sndctl .vol { display: inline-flex; align-items: center; gap: 6px; }
+  .badge { background: #3a2a0f; color: #f5c542; border: 1px solid #6b5418; border-radius: 8px; padding: 2px 8px; font-size: 11px; }
   .sndhead, .sndrow { display: grid; grid-template-columns: 1.3fr 1.6fr 0.6fr 0.5fr; gap: 8px; font-size: 12px; padding: 3px 0; }
   .sndhead { color: #6b746a; border-bottom: 1px solid #16210f; }
   .sndrow { border-bottom: 1px dashed #16210f; }
   .sndrow.played { color: #f5c542; }
   .sndrow .file { color: #8a9388; }
+  .sndrow .ph { color: #c98a2b; margin-left: 4px; }
 </style>

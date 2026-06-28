@@ -10,3 +10,4 @@ export {
   type TimelineEvent,
   type TimelineOptions,
 } from "./timeline.js";
+export { eventToSymbolState } from "./states.js";
