@@ -10,6 +10,7 @@ export {
   resolveSymbolState,
   resolveSound,
   resolveBackground,
+  resolveCharacter,
   resolveAll,
 } from "./resolver.js";
 export {

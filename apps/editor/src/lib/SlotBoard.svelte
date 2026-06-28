@@ -22,10 +22,10 @@
   };
 
   const PAD = 8;
-  const cell = 92;
-  const cols = project.grid.columns;
-  const rows = project.grid.rows;
-  const dropDistance = PAD + rows * cell + cell; // start above the canvas top
+  const cell = $derived(Math.min(project.grid.cellSize, 92));
+  const cols = $derived(project.grid.columns);
+  const rows = $derived(project.grid.rows);
+  const dropDistance = $derived(PAD + rows * cell + cell); // start above the canvas top
   const DROP_MS = 360;
   const STAGGER_MS = 55;
   const LAND_MS = 180;
@@ -192,8 +192,14 @@
 <style>
   .board {
     display: inline-block;
+    max-width: 100%;
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 0 0 2px #1c2b1a, 0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+  .board :global(canvas) {
+    display: block;
+    max-width: 100%;
+    height: auto !important;
   }
 </style>

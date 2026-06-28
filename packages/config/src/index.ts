@@ -2,6 +2,9 @@ import { SlotProject } from "./schema.js";
 import type { SlotProject as SlotProjectType } from "./schema.js";
 
 export * from "./schema.js";
+export * from "./features.js";
+export * from "./templates.js";
+export * from "./wizard.js";
 
 /** Result of parsing/validating an unknown value against the project schema. */
 export type ParseResult =

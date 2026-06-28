@@ -81,6 +81,73 @@ pnpm editor:build  # production build of the editor
 
 `pnpm sim` accepts args: `pnpm sim <projectPath> <spins> <seed>`.
 
+---
+
+## Product UX phase - Template Wizard
+
+The editor now starts as a product-facing **Project Hub** instead of a dense
+debug dashboard. The intended first-time flow is:
+
+1. Open the Project Hub.
+2. Click **New Slot**.
+3. Choose a template.
+4. Choose a theme.
+5. Confirm layout, volatility and RTP target.
+6. Review features and character.
+7. Create the project and continue in the Builder.
+
+![Product UX Template Wizard](docs/product-ux-template-wizard.png)
+![Template Gallery Readiness](docs/template-gallery-readiness.png)
+![Golden Goal Rush Builder Features](docs/builder-golden-goal-rush.png)
+![Candy Cascade Builder Features](docs/builder-candy-cascade.png)
+
+### Template system
+
+Templates live in `@slotmaker/config` as a typed registry. They are not just UI
+labels: each template defines grid, win system, default RTP, volatility, symbols,
+feature flags, math defaults, animation/sound presets, asset requirements,
+production blockers and supported preview states.
+
+Create is enabled only when all advertised mechanics have runtime, math,
+validator, event and UI support. Partial templates stay visible for product
+planning, but their Create action is disabled and the card lists what is
+missing. Mechanic badges are shown only for implemented mechanics.
+
+Current templates:
+
+| Template | Type | Logic readiness | Create |
+| --- | --- | --- | --- |
+| Golden Goal Rush | Cluster 6x5 | Fully implemented: cluster pays, cascades, scatter free spins, coin collector, bonus buy | Enabled |
+| Gem Bonanza | Tumble multiplier | Coming soon: progressive free-spin multiplier and ante bet are not implemented | Disabled |
+| Ancient Book Adventure | Book-style 5x3 | Partially implemented: line pays and expanding-symbol free spins are not implemented | Disabled |
+| Candy Cascade | Candy cluster | Fully implemented: cluster pays, cascades, scatter free spins; boosters are not advertised | Enabled |
+| Classic Fruits | Classic lines 5x3 | Partially implemented: line-pay runtime is not implemented | Disabled |
+| Gold Collector | Coin collector | Coming soon: hold-and-win respins are not implemented | Disabled |
+
+If a mechanic is not fully implemented, the template card and generated project
+show that status. The config keeps TODO warnings in `templateMeta`, and the
+validator surfaces them instead of pretending production is complete.
+
+### Builder navigation
+
+After project creation, the Builder uses a focused layout:
+
+- **Top bar:** project, template, health, RTP, production readiness, Validate,
+  Export and Run 100k Sim.
+- **Left rail:** Overview, Board, Symbols, Features, Character, Animation, Sound,
+  Math, Copilot and Export.
+- **Center:** live PixiJS slot preview with Preview Studio modes.
+- **Right inspector:** contextual health, asset and validation warnings.
+- **Beginner / Advanced toggle:** beginner mode shows practical cards; advanced
+  mode exposes extra timeline/math/session detail.
+
+### Demo vs production
+
+Demo export is allowed with generated placeholder assets. Production export is
+blocked until critical assets, including required character art, resolve as real.
+The Export Center shows exact blockers, math report status, asset manifest status
+and a one-click copy summary for PR/testing notes.
+
 ### Example: `pnpm sim`
 
 ```

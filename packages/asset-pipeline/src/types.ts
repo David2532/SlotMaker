@@ -1,6 +1,6 @@
 import type { AnimationEvent, AssetSource, AssetStatus, SymbolState } from "@slotmaker/config";
 
-export type AssetKind = "symbol" | "sound" | "background" | "frame";
+export type AssetKind = "symbol" | "sound" | "background" | "frame" | "character";
 
 /** The outcome of resolving one asset slot through the fallback chain. */
 export interface ResolvedAsset {

@@ -82,6 +82,30 @@ export function resolveBackground(project: SlotProject, ctx: ResolveContext = {}
   return { ...base, status: "missing" };
 }
 
+export function resolveCharacter(project: SlotProject, ctx: ResolveContext = {}): ResolvedAsset[] {
+  const character = project.character;
+  if (!character?.enabled) return [];
+
+  const real = ctx.realAssets ?? EMPTY;
+  const base = {
+    key: `character:${character.id}`,
+    kind: "character" as const,
+    critical: character.requiredForProduction,
+    ownerId: character.id,
+  };
+
+  if (character.asset && real.has(character.asset)) {
+    return [{ ...base, status: "real", source: "file", uri: character.asset }];
+  }
+  if (character.assetStatus === "generated") {
+    return [{ ...base, status: "generated", source: "generated", uri: character.asset ?? `gen:character/${character.id}` }];
+  }
+  if (character.asset) {
+    return [{ ...base, status: "placeholder", source: "placeholder", uri: character.asset }];
+  }
+  return [{ ...base, status: "missing" }];
+}
+
 /** Every symbol-state slot, plus every critical/bound sound, plus background. */
 export function resolveAll(project: SlotProject, ctx: ResolveContext = {}): ResolvedAsset[] {
   const out: ResolvedAsset[] = [];
@@ -94,5 +118,6 @@ export function resolveAll(project: SlotProject, ctx: ResolveContext = {}): Reso
   ]);
   for (const e of soundEvents) out.push(resolveSound(project, e, ctx));
   out.push(resolveBackground(project, ctx));
+  out.push(...resolveCharacter(project, ctx));
   return out;
 }
