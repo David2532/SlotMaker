@@ -1,5 +1,5 @@
 {
-  "name": "@slotmaker/sound-system",
+  "name": "@slotmaker/asset-pipeline",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -10,8 +10,6 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@slotmaker/config": "workspace:*",
-    "@slotmaker/animation-system": "workspace:*",
-    "@slotmaker/asset-pipeline": "workspace:*"
+    "@slotmaker/config": "workspace:*"
   }
 }

@@ -8,6 +8,7 @@
       "@slotmaker/math-engine": ["packages/math-engine/src/index.ts"],
       "@slotmaker/animation-system": ["packages/animation-system/src/index.ts"],
       "@slotmaker/sound-system": ["packages/sound-system/src/index.ts"],
+      "@slotmaker/asset-pipeline": ["packages/asset-pipeline/src/index.ts"],
       "@slotmaker/validator": ["packages/validator/src/index.ts"],
       "@slotmaker/exporter": ["packages/exporter/src/index.ts"]
     }
@@ -18,6 +19,7 @@
     { "path": "packages/math-engine" },
     { "path": "packages/animation-system" },
     { "path": "packages/sound-system" },
+    { "path": "packages/asset-pipeline" },
     { "path": "packages/validator" },
     { "path": "packages/exporter" }
   ]

@@ -12,3 +12,5 @@ export {
   type AudioHandle,
   type PlayResult,
 } from "./player.js";
+export { createToneSink, toneForEvent, type ToneSpec } from "./tone.js";
+export { resolveSoundCue, type ResolvedSoundCue } from "./resolve.js";

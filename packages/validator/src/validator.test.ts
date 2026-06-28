@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadProject, type SlotProject } from "@slotmaker/config";
-import { autoFix, checkSound, checkSymbolStates, computeHealth } from "./index.js";
+import { autoFix, checkAssetResolution, checkSound, checkSymbolStates, computeHealth } from "./index.js";
 import golden from "../../../projects/golden-goal-rush.json";
 
 const project: SlotProject = loadProject(golden);
@@ -59,6 +59,19 @@ describe("checkSymbolStates", () => {
     } as SlotProject;
     const issues = checkSymbolStates(blanked);
     expect(issues.some((i) => i.severity === "warning" && /render blank/i.test(i.message))).toBe(true);
+  });
+});
+
+describe("checkAssetResolution", () => {
+  it("treats generated dev assets as info in demo mode (no errors)", () => {
+    const issues = checkAssetResolution(project, { profile: "demo" });
+    expect(issues.some((i) => /generated dev asset/i.test(i.message))).toBe(true);
+    expect(issues.every((i) => i.severity !== "error")).toBe(true);
+  });
+
+  it("blocks production when critical assets are not real", () => {
+    const issues = checkAssetResolution(project, { profile: "production" });
+    expect(issues.some((i) => i.category === "export" && i.severity === "error" && /Production export blocked/.test(i.message))).toBe(true);
   });
 });
 

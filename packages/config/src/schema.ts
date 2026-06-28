@@ -28,6 +28,23 @@ export type SymbolState = z.infer<typeof SymbolState>;
 export const ALL_SYMBOL_STATES: SymbolState[] = ["static", "spin", "land", "win", "disabled"];
 export const OPTIONAL_SYMBOL_STATES: SymbolState[] = ["spin", "land", "win", "disabled"];
 
+/**
+ * How an asset slot resolved (Phase 2B asset system):
+ * - real        a real, available production asset
+ * - generated   a dev-pack asset produced procedurally (preview/testing only)
+ * - placeholder referenced but neither real nor generatable — a generic stand-in
+ * - missing     nothing resolves at all
+ */
+export const AssetStatus = z.enum(["real", "generated", "placeholder", "missing"]);
+export type AssetStatus = z.infer<typeof AssetStatus>;
+
+export const AssetSource = z.enum(["file", "generated", "placeholder"]);
+export type AssetSource = z.infer<typeof AssetSource>;
+
+/** Export/validation profile. Production blocks non-real critical assets. */
+export const ExportProfile = z.enum(["demo", "production"]);
+export type ExportProfile = z.infer<typeof ExportProfile>;
+
 /** Per-state asset slots. Phase 2A stores paths only; the pipeline fills them later. */
 export const AssetStates = z.object({
   static: z.string().optional(),
