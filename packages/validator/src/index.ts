@@ -1,6 +1,7 @@
 export {
   collectIssues,
   checkAssets,
+  checkSymbolStates,
   checkMath,
   checkAnimation,
   checkSound,
@@ -11,4 +12,6 @@ export {
   type MathStats,
 } from "./checks.js";
 export { computeHealth, type HealthReport, type CategoryScore } from "./health.js";
+export { checkAssetResolution, type AssetCheckOptions } from "./assets.js";
+export { checkMathReport } from "./mathreport.js";
 export { autoFix, type AutoFixResult } from "./autofix.js";

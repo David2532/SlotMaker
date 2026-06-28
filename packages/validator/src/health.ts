@@ -1,7 +1,10 @@
 import type { SlotProject } from "@slotmaker/config";
 import { collectIssues, type Category, type Issue, type MathStats } from "./checks.js";
+import { checkAssetResolution, type AssetCheckOptions } from "./assets.js";
+import { checkMathReport } from "./mathreport.js";
+import type { MathReport } from "@slotmaker/math-engine";
 
-const CATEGORIES: Category[] = ["assets", "math", "animation", "sound", "mobile", "export"];
+const CATEGORIES: Category[] = ["assets", "symbols", "math", "animation", "sound", "mobile", "export"];
 
 const PENALTY = { error: 35, warning: 12, info: 0 } as const;
 
@@ -22,8 +25,17 @@ export interface HealthReport {
  * Compute the Slot Health Score. Each category starts at 100 and loses points
  * per issue. Export is "ready" only when there are no errors.
  */
-export function computeHealth(project: SlotProject, stats?: MathStats): HealthReport {
-  const issues = collectIssues(project, stats);
+export function computeHealth(
+  project: SlotProject,
+  stats?: MathStats,
+  assetOptions?: AssetCheckOptions,
+  mathReport?: MathReport,
+): HealthReport {
+  const issues = [
+    ...collectIssues(project, stats),
+    ...checkAssetResolution(project, assetOptions),
+    ...checkMathReport(project, mathReport),
+  ];
   const categories: CategoryScore[] = CATEGORIES.map((category) => {
     const own = issues.filter((i) => i.category === category);
     const lost = own.reduce((s, i) => s + PENALTY[i.severity], 0);

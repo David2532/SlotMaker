@@ -21,7 +21,41 @@ export const PayTier = z.object({
 });
 export type PayTier = z.infer<typeof PayTier>;
 
-/** Symbol definition: identity + skin hooks + math weights + payouts. */
+/** The five render states every symbol can express. */
+export const SymbolState = z.enum(["static", "spin", "land", "win", "disabled"]);
+export type SymbolState = z.infer<typeof SymbolState>;
+
+export const ALL_SYMBOL_STATES: SymbolState[] = ["static", "spin", "land", "win", "disabled"];
+export const OPTIONAL_SYMBOL_STATES: SymbolState[] = ["spin", "land", "win", "disabled"];
+
+/**
+ * How an asset slot resolved (Phase 2B asset system):
+ * - real        a real, available production asset
+ * - generated   a dev-pack asset produced procedurally (preview/testing only)
+ * - placeholder referenced but neither real nor generatable — a generic stand-in
+ * - missing     nothing resolves at all
+ */
+export const AssetStatus = z.enum(["real", "generated", "placeholder", "missing"]);
+export type AssetStatus = z.infer<typeof AssetStatus>;
+
+export const AssetSource = z.enum(["file", "generated", "placeholder"]);
+export type AssetSource = z.infer<typeof AssetSource>;
+
+/** Export/validation profile. Production blocks non-real critical assets. */
+export const ExportProfile = z.enum(["demo", "production"]);
+export type ExportProfile = z.infer<typeof ExportProfile>;
+
+/** Per-state asset slots. Phase 2A stores paths only; the pipeline fills them later. */
+export const AssetStates = z.object({
+  static: z.string().optional(),
+  spin: z.string().optional(),
+  land: z.string().optional(),
+  win: z.string().optional(),
+  disabled: z.string().optional(),
+});
+export type AssetStates = z.infer<typeof AssetStates>;
+
+/** Symbol definition: identity + skin hooks + math weights + payouts + states. */
 export const SymbolDef = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -36,6 +70,8 @@ export const SymbolDef = z.object({
   pays: z.array(PayTier).default([]),
   /** Coin face value (in bet multiples). Only meaningful for `kind: "coin"`. */
   coinValue: z.number().min(0).optional(),
+  /** Per-symbol state asset slots (static/spin/land/win/disabled). */
+  states: AssetStates.optional(),
 });
 export type SymbolDef = z.infer<typeof SymbolDef>;
 
@@ -53,6 +89,12 @@ export const FeatureFlags = z.object({
   freeSpins: z.boolean().default(false),
   coinCollector: z.boolean().default(false),
   bonusBuy: z.boolean().default(false),
+  lineWins: z.boolean().default(false),
+  expandingSymbolFreeSpins: z.boolean().default(false),
+  freeSpinMultiplier: z.boolean().default(false),
+  holdAndWinRespins: z.boolean().default(false),
+  anteBet: z.boolean().default(false),
+  wildSubstitution: z.boolean().default(false),
 });
 export type FeatureFlags = z.infer<typeof FeatureFlags>;
 
@@ -79,18 +121,10 @@ export const MathConfig = z.object({
   freeSpins: FreeSpinsConfig.default({}),
   /** Coins required on screen to collect (coin collector feature). */
   coinCollectThreshold: z.number().int().min(1).default(4),
+  /** Configured bonus-buy price in bet multiples (used by the Bonus Buy calculator). */
+  bonusBuyCost: z.number().min(0).default(100),
 });
 export type MathConfig = z.infer<typeof MathConfig>;
-
-/** Per-symbol-state asset slots. Phase 1 stores paths only; pipeline fills them later. */
-export const AssetStates = z.object({
-  static: z.string().optional(),
-  spin: z.string().optional(),
-  land: z.string().optional(),
-  win: z.string().optional(),
-  disabled: z.string().optional(),
-});
-export type AssetStates = z.infer<typeof AssetStates>;
 
 export const AssetRegistry = z.object({
   background: z.string().optional(),
@@ -99,6 +133,42 @@ export const AssetRegistry = z.object({
   symbols: z.record(z.string(), AssetStates).default({}),
 });
 export type AssetRegistry = z.infer<typeof AssetRegistry>;
+
+export const CharacterPosition = z.enum(["left", "right"]);
+export type CharacterPosition = z.infer<typeof CharacterPosition>;
+
+export const CharacterConfig = z.object({
+  enabled: z.boolean().default(false),
+  id: z.string().min(1).default("sidekick"),
+  name: z.string().min(1).default("Sidekick"),
+  description: z.string().default("Generated helper character for the selected theme."),
+  position: CharacterPosition.default("right"),
+  assetStatus: AssetStatus.default("generated"),
+  asset: z.string().optional(),
+  requiredForProduction: z.boolean().default(true),
+});
+export type CharacterConfig = z.infer<typeof CharacterConfig>;
+
+export const MechanicImplementationStatus = z.enum(["implemented", "partial", "planned"]);
+export type MechanicImplementationStatus = z.infer<typeof MechanicImplementationStatus>;
+
+export const TemplateMechanicStatus = z.object({
+  featureId: z.string().min(1),
+  status: MechanicImplementationStatus,
+  note: z.string().default(""),
+});
+export type TemplateMechanicStatus = z.infer<typeof TemplateMechanicStatus>;
+
+export const TemplateMeta = z.object({
+  templateName: z.string().min(1),
+  winSystem: z.string().min(1),
+  complexity: z.enum(["easy", "medium", "advanced"]).default("medium"),
+  bestFor: z.string().default("Fast slot prototyping."),
+  mechanicStatus: z.array(TemplateMechanicStatus).default([]),
+  warnings: z.array(z.string()).default([]),
+  nextActions: z.array(z.string()).default([]),
+});
+export type TemplateMeta = z.infer<typeof TemplateMeta>;
 
 /** Canonical animation event names every slot understands. */
 export const AnimationEvent = z.enum([
@@ -149,6 +219,8 @@ export const SlotProject = z.object({
   math: MathConfig,
   symbols: z.array(SymbolDef).min(1),
   assets: AssetRegistry.default({ symbols: {} }),
+  character: CharacterConfig.optional(),
+  templateMeta: TemplateMeta.optional(),
   animations: z.array(AnimationBinding).default([]),
   sounds: z.array(SoundBinding).default([]),
 });

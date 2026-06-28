@@ -57,7 +57,20 @@ export function autoFix(project: SlotProject): AutoFixResult {
     }
   }
 
-  // 4. Shrink an oversized board for mobile safety.
+  // 4. Clamp out-of-range sound volumes / negative delays.
+  for (const s of next.sounds) {
+    if (s.volume < 0 || s.volume > 1) {
+      const clamped = Math.max(0, Math.min(1, s.volume));
+      applied.push(`Clamped volume for "${s.event}" to ${clamped}.`);
+      s.volume = clamped;
+    }
+    if (s.delayMs < 0) {
+      applied.push(`Reset negative delay for "${s.event}" to 0.`);
+      s.delayMs = 0;
+    }
+  }
+
+  // 5. Shrink an oversized board for mobile safety.
   if (next.grid.columns * next.grid.cellSize > 1200) {
     const fitted = Math.floor(1200 / next.grid.columns);
     next.grid.cellSize = fitted;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadProject, type SlotProject } from "@slotmaker/config";
+import { canCreateTemplate, createProjectFromTemplate, loadProject, TEMPLATE_REGISTRY, type SlotProject } from "@slotmaker/config";
 import { Rng, detectClusters, spin } from "./index.js";
 import golden from "../../../projects/golden-goal-rush.json";
 
@@ -62,5 +62,38 @@ describe("spin", () => {
     expect(a.totalWin).toBe(b.totalWin);
     expect(a.totalWin).toBeLessThanOrEqual(project.math.maxWin);
     expect(a.steps.length).toBeGreaterThan(0);
+  });
+
+  it("spins every create-enabled template with the expected board shape", () => {
+    for (const template of TEMPLATE_REGISTRY.filter((t) => canCreateTemplate(t))) {
+      const p = createProjectFromTemplate(template.id);
+      const r = spin(p, 1234);
+      expect(r.steps.length).toBeGreaterThan(0);
+      expect(r.steps[0]!.grid).toHaveLength(p.grid.columns * p.grid.rows);
+      expect(r.totalWin).toBeLessThanOrEqual(p.math.maxWin);
+    }
+  });
+
+  it("triggers scatter free spins for create-enabled templates when scatters are forced", () => {
+    for (const template of TEMPLATE_REGISTRY.filter((t) => canCreateTemplate(t) && t.features.freeSpins)) {
+      const p = createProjectFromTemplate(template.id);
+      const forced: SlotProject = {
+        ...p,
+        symbols: p.symbols.map((s) => ({ ...s, weight: s.kind === "scatter" ? 1 : 0 })),
+      };
+      const r = spin(forced, 5);
+      expect(r.freeSpinsTriggered).toBe(true);
+      expect(r.freeSpinsCount).toBe(p.math.freeSpins.spinsAwarded);
+    }
+  });
+
+  it("resolves Golden Goal Rush coin collector when coins are forced", () => {
+    const p = createProjectFromTemplate("cluster_6x5_collector");
+    const forced: SlotProject = {
+      ...p,
+      symbols: p.symbols.map((s) => ({ ...s, weight: s.kind === "coin" ? 1 : 0 })),
+    };
+    const r = spin(forced, 9);
+    expect(r.coinWin).toBeGreaterThan(0);
   });
 });

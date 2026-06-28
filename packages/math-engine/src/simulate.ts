@@ -3,16 +3,14 @@ import { Rng, buildWeightTable, spinRound } from "@slotmaker/slot-runtime";
 
 export interface SimOptions {
   spins: number;
-  /** Bet per spin in bet-multiple units. RTP is independent of this; kept = 1. */
   seed?: number;
 }
 
-/** Win-size buckets (in bet multiples) for the distribution histogram. */
-const BUCKET_EDGES = [0, 0.5, 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000];
+/** Win-size bucket edges (bet multiples). Index i covers [edge[i], edge[i+1]). */
+const BUCKET_EDGES = [0, 0.01, 1, 5, 20, 100, 500];
 
 export interface WinBucket {
   label: string;
-  /** Inclusive lower bound in bet multiples. */
   min: number;
   count: number;
 }
@@ -20,21 +18,26 @@ export interface WinBucket {
 export interface SimResult {
   spins: number;
   seed: number;
-  /** Realized return-to-player as a percentage (wins / wagered * 100). */
   rtp: number;
-  /** Share of spins that returned > 0. */
   hitFrequency: number;
-  /** Share of spins that returned exactly 0. */
   deadSpinRate: number;
-  /** Average number of spins between free-spins triggers (1-in-N). */
+  /** Wins in (0, 5]. */
+  smallWinRate: number;
+  /** Wins in (5, 20]. */
+  mediumWinRate: number;
+  /** Wins > 20. */
+  bigWinRate: number;
   bonusFrequency: number;
   bonusTriggers: number;
-  /** Largest single-round win observed, in bet multiples. */
   maxWin: number;
   avgWin: number;
-  /** Times the maxWin cap was applied. */
   cappedRounds: number;
-  /** RTP contribution split by source (sums ≈ total rtp). */
+  /** Per-spin return standard deviation (drives the volatility analysis). */
+  returnStdDev: number;
+  /** Per-spin return skewness (positive = long upside tail). */
+  returnSkew: number;
+  /** Share of total returns coming from wins > 20x (big-win dependency). */
+  bigWinRtpShare: number;
   contribution: {
     base: number;
     freeSpins: number;
@@ -48,23 +51,25 @@ function emptyBuckets(): WinBucket[] {
     const next = BUCKET_EDGES[i + 1];
     return {
       min,
-      label: next === undefined ? `${min}x+` : `${min}-${next}x`,
+      label: min === 0 ? "0x" : next === undefined ? `${min}x+` : `${min}-${next}x`,
       count: 0,
     };
   });
 }
 
 function bucketIndex(win: number): number {
-  let idx = 0;
-  for (let i = 0; i < BUCKET_EDGES.length; i++) {
+  if (win <= 0) return 0;
+  let idx = 1;
+  for (let i = 1; i < BUCKET_EDGES.length; i++) {
     if (win >= BUCKET_EDGES[i]!) idx = i;
   }
   return idx;
 }
 
 /**
- * Run a seeded Monte-Carlo simulation. This is the only source of truth for
- * math claims — "looks good" never decides RTP, the simulator does.
+ * Run a seeded Monte-Carlo simulation — the single source of truth for math.
+ * Accumulates enough moments (sum, sum-of-squares) to derive variance/volatility
+ * without storing every spin.
  */
 export function simulate(project: SlotProject, opts: SimOptions): SimResult {
   const spins = Math.max(1, Math.floor(opts.spins));
@@ -74,10 +79,16 @@ export function simulate(project: SlotProject, opts: SimOptions): SimResult {
 
   let wagered = 0;
   let won = 0;
+  let wonSq = 0;
+  let wonCube = 0;
   let baseWon = 0;
   let fsWon = 0;
   let coinWon = 0;
+  let bigWon = 0;
   let hits = 0;
+  let small = 0;
+  let medium = 0;
+  let big = 0;
   let bonusTriggers = 0;
   let maxWin = 0;
   let cappedRounds = 0;
@@ -86,29 +97,50 @@ export function simulate(project: SlotProject, opts: SimOptions): SimResult {
   for (let i = 0; i < spins; i++) {
     wagered += 1;
     const r = spinRound(project, table, rng);
-    won += r.totalWin;
+    const w = r.totalWin;
+    won += w;
+    wonSq += w * w;
+    wonCube += w * w * w;
     baseWon += r.baseWin;
     fsWon += r.freeSpinsWin;
     coinWon += r.coinWin;
-    if (r.totalWin > 0) hits++;
+    if (w > 0) hits++;
+    if (w > 0 && w <= 5) small++;
+    else if (w > 5 && w <= 20) medium++;
+    else if (w > 20) {
+      big++;
+      bigWon += w;
+    }
     if (r.freeSpinsTriggered) bonusTriggers++;
     if (r.capped) cappedRounds++;
-    if (r.totalWin > maxWin) maxWin = r.totalWin;
-    distribution[bucketIndex(r.totalWin)]!.count++;
+    if (w > maxWin) maxWin = w;
+    distribution[bucketIndex(w)]!.count++;
   }
 
-  const rtp = (won / wagered) * 100;
+  const mean = won / spins;
+  const variance = Math.max(0, wonSq / spins - mean * mean);
+  const stdDev = Math.sqrt(variance);
+  // Third central moment → skewness (m3 / σ³).
+  const m3 = wonCube / spins - 3 * mean * (wonSq / spins) + 2 * mean ** 3;
+  const skew = stdDev > 1e-9 ? m3 / stdDev ** 3 : 0;
+
   return {
     spins,
     seed,
-    rtp,
+    rtp: (won / wagered) * 100,
     hitFrequency: (hits / spins) * 100,
     deadSpinRate: ((spins - hits) / spins) * 100,
+    smallWinRate: (small / spins) * 100,
+    mediumWinRate: (medium / spins) * 100,
+    bigWinRate: (big / spins) * 100,
     bonusFrequency: bonusTriggers > 0 ? spins / bonusTriggers : Infinity,
     bonusTriggers,
     maxWin,
-    avgWin: won / spins,
+    avgWin: mean,
     cappedRounds,
+    returnStdDev: stdDev,
+    returnSkew: skew,
+    bigWinRtpShare: won > 0 ? bigWon / won : 0,
     contribution: {
       base: (baseWon / wagered) * 100,
       freeSpins: (fsWon / wagered) * 100,

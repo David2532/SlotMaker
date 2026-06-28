@@ -10,6 +10,8 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@slotmaker/config": "workspace:*"
+    "@slotmaker/config": "workspace:*",
+    "@slotmaker/asset-pipeline": "workspace:*",
+    "@slotmaker/math-engine": "workspace:*"
   }
 }
