@@ -87,6 +87,34 @@
   const symbolAssetStatus = $derived(assetRegistry.completeness.symbolStates > 0 ? "real" : "generated");
   const pctI = (n: number) => `${Math.round(n * 100)}%`;
 
+  // Feel polish: near-miss tension + big-win count-up.
+  const scatterIds = new Set(project.symbols.filter((s) => s.kind === "scatter").map((s) => s.id));
+  const baseScatters = $derived(round ? (round.steps[0]?.grid.filter((c) => scatterIds.has(c)).length ?? 0) : 0);
+  const nearMiss = $derived(!!round && !round.freeSpinsTriggered && baseScatters === project.math.freeSpins.triggerScatters - 1);
+  const bigWin = $derived(!!round && round.totalWin >= 10);
+  let displayWin = $state(0);
+  let countTimer: ReturnType<typeof setInterval> | null = null;
+
+  function startCountup(total: number) {
+    if (countTimer) clearInterval(countTimer);
+    if (total < 10) {
+      displayWin = total;
+      return;
+    }
+    displayWin = 0;
+    const t0 = performance.now();
+    const dur = 1100;
+    countTimer = setInterval(() => {
+      const p = Math.min((performance.now() - t0) / dur, 1);
+      displayWin = total * (1 - Math.pow(1 - p, 3));
+      if (p >= 1 && countTimer) {
+        displayWin = total;
+        clearInterval(countTimer);
+        countTimer = null;
+      }
+    }, 33);
+  }
+
   function buildMuts(r: RoundResult, tl: Timeline): Mut[] {
     const steps = r.steps;
     const winDetected = tl.events.filter((e) => e.event === "win_detected");
@@ -142,6 +170,7 @@
     cues = buildSoundCues(project, timeline);
     muts = buildMuts(r, timeline);
     playheadMs = 0;
+    startCountup(r.totalWin);
     play();
   }
 
@@ -186,7 +215,10 @@
     });
     syncPlayer();
     doSpin();
-    return () => stopClock();
+    return () => {
+      stopClock();
+      if (countTimer) clearInterval(countTimer);
+    };
   });
 
   // Keep the audio runtime in sync with the mixer controls.
@@ -203,7 +235,7 @@
 <div class="app">
   <header>
     <h1><span class="gold">SLOT</span> FACTORY</h1>
-    <span class="tag">Editor · Phase 2B</span>
+    <span class="tag">Editor · Phase 2C</span>
     <span class="spacer"></span>
     <span class="proj">{project.projectName}</span>
     <span class="muted">{project.template} · {project.theme}</span>
@@ -236,10 +268,12 @@
       <div class="hud">
         <button class="spin" onclick={doSpin}>SPIN</button>
         <div class="readout">
-          <div class="big {round && round.totalWin > 0 ? 'win' : ''}">{round ? round.totalWin.toFixed(2) : "0.00"}× WIN</div>
+          <div class="big {round && round.totalWin > 0 ? 'win' : ''} {bigWin ? 'bigwin' : ''}">{displayWin.toFixed(2)}× WIN</div>
           <div class="muted">
+            {#if bigWin}<b class="gold">BIG WIN</b> · {/if}
             {#if round?.freeSpinsTriggered}<b class="gold">FREE SPINS ×{round.freeSpinsCount}</b> · {/if}
             {#if round?.capped}<b class="gold">MAX WIN</b> · {/if}
+            {#if nearMiss}<b class="nearmiss">SO CLOSE · {baseScatters}/{project.math.freeSpins.triggerScatters} scatter</b> · {/if}
             active: <b>{activeEvent ?? "—"}</b>
           </div>
         </div>
@@ -373,8 +407,12 @@
   .hud { display: flex; align-items: center; gap: 18px; }
   .spin { width: 78px; height: 78px; border-radius: 50%; border: none; cursor: pointer; background: radial-gradient(circle at 30% 30%, #2d9c6f, #1c5b40); color: white; font-weight: 800; font-size: 14px; }
   .spin:active { transform: scale(0.96); }
-  .readout .big { font-size: 24px; font-weight: 800; }
+  .readout .big { font-size: 24px; font-weight: 800; transition: color 0.2s; }
   .readout .big.win { color: #f5c542; }
+  .readout .big.bigwin { color: #ffd700; text-shadow: 0 0 18px rgba(245, 197, 66, 0.75); animation: bigpulse 0.55s ease-in-out infinite alternate; }
+  @keyframes bigpulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+  .nearmiss { color: #ff6b6b; animation: flash 0.7s ease-in-out infinite alternate; }
+  @keyframes flash { from { opacity: 0.45; } to { opacity: 1; } }
   .breakdown { font-size: 12px; }
   .simbtns, .actions { display: flex; gap: 8px; margin-bottom: 10px; }
   button { background: #16210f; color: #e8e8e8; border: 1px solid #2d6a4f; border-radius: 8px; padding: 7px 10px; cursor: pointer; font-size: 12px; }

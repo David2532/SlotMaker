@@ -46,7 +46,7 @@ slotmaker/
     math-engine/       # seeded Monte-Carlo simulation + balance suggestions
     animation-system/  # preset registry + buildTimeline() (Phase 2)
     sound-system/      # sound packs, cues, audio runtime, sound resolver (Phase 2)
-    asset-pipeline/    # asset resolver, dev pack, registry, manifest (Phase 2B)
+    asset-pipeline/    # asset resolver, dev pack, registry, manifest, importer (Phase 2B/2C)
     validator/         # checks, health score, safe auto-fix
     exporter/          # validated bundle + asset manifest, demo/production gate
   apps/
@@ -111,7 +111,50 @@ balance assistant flags drift instead of trusting a single run.
 
 ---
 
-## Phase 2B — Audio + Symbol-State Asset System (this branch)
+## Phase 2C — Golden Goal Rush Feel Polish (this branch)
+
+Make the slot *feel* good — without faking real content. All procedural visuals
+and tones still resolve as `generated`; production stays blocked until real assets
+exist.
+
+![Phase 2C editor](docs/phase-2c-editor.png)
+
+- **Animated renderer** — `SlotBoard` is now a 60fps PixiJS ticker renderer:
+  staggered **reel drop** with ease-out, **land squash/bounce**, **win glow + scale
+  pulse** on clustered cells, and per-symbol depth (premium symbols get an inner
+  ring). Symbols drop in from above the board on every spin and cascade refill.
+- **Near-miss + big-win feel** — landing one scatter short of the trigger shows a
+  "SO CLOSE" tension cue; wins ≥ 10× run a **count-up** with a big-win celebration.
+- **Real asset import pipeline** — `importAssets()` validates format/dimensions/
+  path, plans normalization (square canvas + padding), and returns the set of real
+  asset paths. Imported reals **override generated** automatically via the resolver
+  (no code change needed) — drop in real files later and those slots flip to `real`.
+- **Honest throughout** — no real binaries are committed; demo stays fully
+  previewable on generated assets, and the production gate still blocks the
+  non-real critical assets.
+
+### Using the import pipeline
+
+```ts
+import { importAssets, buildAssetRegistry, createGoldenGoalRushDevPack } from "@slotmaker/asset-pipeline";
+
+const result = importAssets(project, [
+  { kind: "symbol", symbolId: "football", state: "static", path: "art/football.png", width: 256, height: 256, format: "png" },
+  { kind: "sound", event: "bonus_trigger", path: "audio/roar.wav", format: "wav" },
+]);
+// Feed the real set back into resolution — imported slots now resolve as `real`,
+// everything else falls back to the generated dev pack.
+const registry = buildAssetRegistry(project, {
+  realAssets: result.realAssets,
+  devPack: createGoldenGoalRushDevPack(),
+});
+```
+
+**Deferred to 2D+**: shipping the actual high-quality art/audio binaries and the
+final mastered Golden Goal Rush soundtrack — the systems above consume them with
+no further code changes.
+
+## Phase 2B — Audio + Symbol-State Asset System
 
 Phase 2B builds the **asset system**, not final content. Every asset slot resolves
 to one of four explicit statuses — `real`, `generated`, `placeholder`, `missing` —
