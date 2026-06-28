@@ -1,0 +1,357 @@
+{
+  "schemaVersion": 1,
+  "id": "golden-goal-rush",
+  "projectName": "Golden Goal Rush",
+  "template": "cluster_6x5_collector",
+  "theme": "football_black_gold",
+  "grid": {
+    "columns": 6,
+    "rows": 5,
+    "cellSize": 128
+  },
+  "features": {
+    "clusterWins": true,
+    "cascades": true,
+    "freeSpins": true,
+    "coinCollector": true,
+    "bonusBuy": true
+  },
+  "math": {
+    "targetRtp": 96,
+    "volatility": "high",
+    "maxWin": 5000,
+    "minClusterSize": 5,
+    "hitFrequencyTarget": 24,
+    "bonusFrequencyTarget": 180,
+    "coinCollectThreshold": 4,
+    "freeSpins": {
+      "triggerScatters": 3,
+      "spinsAwarded": 10,
+      "multiplier": 2
+    }
+  },
+  "symbols": [
+    {
+      "id": "ten",
+      "name": "Ten",
+      "kind": "low",
+      "color": "#7d8a99",
+      "label": "10",
+      "weight": 150,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 1.77
+        },
+        {
+          "minSize": 8,
+          "multiplier": 5.3
+        },
+        {
+          "minSize": 12,
+          "multiplier": 14.13
+        }
+      ]
+    },
+    {
+      "id": "jack",
+      "name": "Jack",
+      "kind": "low",
+      "color": "#8a7d99",
+      "label": "J",
+      "weight": 140,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 2.12
+        },
+        {
+          "minSize": 8,
+          "multiplier": 6.18
+        },
+        {
+          "minSize": 12,
+          "multiplier": 15.89
+        }
+      ]
+    },
+    {
+      "id": "queen",
+      "name": "Queen",
+      "kind": "low",
+      "color": "#998a7d",
+      "label": "Q",
+      "weight": 130,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 2.47
+        },
+        {
+          "minSize": 8,
+          "multiplier": 7.06
+        },
+        {
+          "minSize": 12,
+          "multiplier": 17.66
+        }
+      ]
+    },
+    {
+      "id": "king",
+      "name": "King",
+      "kind": "low",
+      "color": "#998d7d",
+      "label": "K",
+      "weight": 120,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 2.83
+        },
+        {
+          "minSize": 8,
+          "multiplier": 7.95
+        },
+        {
+          "minSize": 12,
+          "multiplier": 21.19
+        }
+      ]
+    },
+    {
+      "id": "ace",
+      "name": "Ace",
+      "kind": "low",
+      "color": "#a3937d",
+      "label": "A",
+      "weight": 110,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 3.53
+        },
+        {
+          "minSize": 8,
+          "multiplier": 8.83
+        },
+        {
+          "minSize": 12,
+          "multiplier": 26.49
+        }
+      ]
+    },
+    {
+      "id": "boot",
+      "name": "Boot",
+      "kind": "high",
+      "color": "#3a5a40",
+      "label": "BOOT",
+      "weight": 34,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 7.06
+        },
+        {
+          "minSize": 8,
+          "multiplier": 17.66
+        },
+        {
+          "minSize": 12,
+          "multiplier": 44.15
+        }
+      ]
+    },
+    {
+      "id": "glove",
+      "name": "Goalkeeper Glove",
+      "kind": "high",
+      "color": "#2d6a4f",
+      "label": "GLV",
+      "weight": 28,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 8.83
+        },
+        {
+          "minSize": 8,
+          "multiplier": 22.96
+        },
+        {
+          "minSize": 12,
+          "multiplier": 52.98
+        }
+      ]
+    },
+    {
+      "id": "jersey",
+      "name": "Jersey",
+      "kind": "high",
+      "color": "#bc4749",
+      "label": "KIT",
+      "weight": 22,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 10.6
+        },
+        {
+          "minSize": 8,
+          "multiplier": 28.26
+        },
+        {
+          "minSize": 12,
+          "multiplier": 70.64
+        }
+      ]
+    },
+    {
+      "id": "football",
+      "name": "Football",
+      "kind": "high",
+      "color": "#f2f2f2",
+      "label": "BALL",
+      "weight": 17,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 14.13
+        },
+        {
+          "minSize": 8,
+          "multiplier": 38.85
+        },
+        {
+          "minSize": 12,
+          "multiplier": 105.96
+        }
+      ]
+    },
+    {
+      "id": "trophy",
+      "name": "Trophy",
+      "kind": "high",
+      "color": "#f5c542",
+      "label": "CUP",
+      "weight": 12,
+      "pays": [
+        {
+          "minSize": 5,
+          "multiplier": 21.19
+        },
+        {
+          "minSize": 8,
+          "multiplier": 61.81
+        },
+        {
+          "minSize": 12,
+          "multiplier": 211.92
+        }
+      ]
+    },
+    {
+      "id": "wild",
+      "name": "Wild",
+      "kind": "wild",
+      "color": "#ffd700",
+      "label": "WILD",
+      "weight": 14,
+      "pays": []
+    },
+    {
+      "id": "scatter",
+      "name": "Scatter",
+      "kind": "scatter",
+      "color": "#e63946",
+      "label": "SCAT",
+      "weight": 8,
+      "pays": []
+    },
+    {
+      "id": "coin",
+      "name": "Coin",
+      "kind": "coin",
+      "color": "#ffbf00",
+      "label": "COIN",
+      "weight": 13,
+      "coinValue": 1.5,
+      "pays": []
+    }
+  ],
+  "assets": {
+    "background": "themes/golden-goal-rush/assets/stadium_bg.png",
+    "symbols": {}
+  },
+  "animations": [
+    {
+      "event": "spin_start",
+      "preset": "smooth_drop",
+      "delayMs": 0,
+      "durationMs": 200
+    },
+    {
+      "event": "reel_drop",
+      "preset": "smooth_drop",
+      "delayMs": 100,
+      "durationMs": 400
+    },
+    {
+      "event": "symbol_land",
+      "preset": "land_bounce",
+      "delayMs": 0,
+      "durationMs": 150
+    },
+    {
+      "event": "win_detected",
+      "preset": "cluster_glow",
+      "delayMs": 0,
+      "durationMs": 300
+    },
+    {
+      "event": "cluster_remove",
+      "preset": "cascade_pop",
+      "delayMs": 0,
+      "durationMs": 250
+    },
+    {
+      "event": "big_win_start",
+      "preset": "stadium_hype",
+      "delayMs": 0,
+      "durationMs": 600
+    }
+  ],
+  "sounds": [
+    {
+      "event": "spin_start",
+      "file": "spin_whoosh.wav",
+      "delayMs": 0,
+      "volume": 0.8
+    },
+    {
+      "event": "reel_stop",
+      "file": "reel_tick.wav",
+      "delayMs": 0,
+      "volume": 0.65
+    },
+    {
+      "event": "scatter_land",
+      "file": "whistle_hit.wav",
+      "delayMs": 50,
+      "volume": 0.9
+    },
+    {
+      "event": "bonus_trigger",
+      "file": "stadium_roar.wav",
+      "delayMs": 300,
+      "volume": 1
+    },
+    {
+      "event": "coin_collect",
+      "file": "gold_coin.wav",
+      "delayMs": 0,
+      "volume": 0.9
+    }
+  ]
+}

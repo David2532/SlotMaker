@@ -1,0 +1,19 @@
+{
+  "id": "football_black_gold",
+  "name": "Golden Goal Rush — Football Black & Gold",
+  "palette": {
+    "background": "#0b0f0a",
+    "primary": "#f5c542",
+    "secondary": "#1c2b1a",
+    "accent": "#e8e8e8",
+    "win": "#ffd700"
+  },
+  "mood": "night stadium, world cup, black & gold, floodlights",
+  "symbolStyle": {
+    "low": "metallic card ranks with gold trim",
+    "high": "football, trophy, jersey, boot, goalkeeper glove",
+    "wild": "golden WILD badge",
+    "scatter": "referee whistle / SCATTER",
+    "coin": "golden collector coin"
+  }
+}

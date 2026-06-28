@@ -1,0 +1,25 @@
+{
+  "id": "cluster_6x5_collector",
+  "name": "Cluster 6x5 + Coin Collector",
+  "description": "6x5 cluster-pays board with cascades, scatter free spins and a coin collector. Skin-agnostic mechanic; pair with any theme.",
+  "grid": { "columns": 6, "rows": 5, "cellSize": 128 },
+  "features": {
+    "clusterWins": true,
+    "cascades": true,
+    "freeSpins": true,
+    "coinCollector": true,
+    "bonusBuy": true
+  },
+  "symbolSlots": [
+    { "kind": "low", "count": 5, "role": "card ranks A K Q J 10" },
+    { "kind": "high", "count": 5, "role": "themed premium symbols" },
+    { "kind": "wild", "count": 1 },
+    { "kind": "scatter", "count": 1 },
+    { "kind": "coin", "count": 1 }
+  ],
+  "recommendedMath": {
+    "minClusterSize": 5,
+    "targetRtp": 96,
+    "volatility": "high"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@slotmaker/math-engine",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@slotmaker/config": "workspace:*",
+    "@slotmaker/slot-runtime": "workspace:*"
+  }
+}
