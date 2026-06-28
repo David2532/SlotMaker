@@ -10,7 +10,8 @@
       "@slotmaker/sound-system": ["packages/sound-system/src/index.ts"],
       "@slotmaker/asset-pipeline": ["packages/asset-pipeline/src/index.ts"],
       "@slotmaker/validator": ["packages/validator/src/index.ts"],
-      "@slotmaker/exporter": ["packages/exporter/src/index.ts"]
+      "@slotmaker/exporter": ["packages/exporter/src/index.ts"],
+      "@slotmaker/ai-copilot": ["packages/ai-copilot/src/index.ts"]
     }
   },
   "references": [
@@ -21,6 +22,7 @@
     { "path": "packages/sound-system" },
     { "path": "packages/asset-pipeline" },
     { "path": "packages/validator" },
-    { "path": "packages/exporter" }
+    { "path": "packages/exporter" },
+    { "path": "packages/ai-copilot" }
   ]
 }

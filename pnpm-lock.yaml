@@ -67,6 +67,24 @@ importers:
         specifier: ^6.0.7
         version: 6.4.3(tsx@4.22.4)
 
+  packages/ai-copilot:
+    dependencies:
+      '@slotmaker/asset-pipeline':
+        specifier: workspace:*
+        version: link:../asset-pipeline
+      '@slotmaker/config':
+        specifier: workspace:*
+        version: link:../config
+      '@slotmaker/math-engine':
+        specifier: workspace:*
+        version: link:../math-engine
+      '@slotmaker/validator':
+        specifier: workspace:*
+        version: link:../validator
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+
   packages/animation-system:
     dependencies:
       '@slotmaker/config':

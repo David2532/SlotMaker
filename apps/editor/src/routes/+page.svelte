@@ -22,6 +22,15 @@
   import type { AnimationEvent, ExportProfile } from "@slotmaker/config";
   import { autoFix, computeHealth } from "@slotmaker/validator";
   import { exportBundle, serializeBundle } from "@slotmaker/exporter";
+  import {
+    createMockProvider,
+    applyProposal,
+    proposeProductionFixes,
+    createAuditLog,
+    type Proposal,
+    type ApplyResult,
+    type AuditEntry,
+  } from "@slotmaker/ai-copilot";
   import golden from "@project";
   import SlotBoard from "$lib/SlotBoard.svelte";
   import TimelineView from "$lib/Timeline.svelte";
@@ -53,6 +62,17 @@
   let mathProgress = $state(0);
   let seedCount = $state(5);
   let worker: Worker | null = null;
+
+  // AI Copilot (Phase 4A) — proposes; the user approves; the validator decides.
+  const aiProvider = createMockProvider();
+  const audit = createAuditLog();
+  let aiPrompt = $state("");
+  let aiBusy = $state(false);
+  let proposals = $state<Proposal[]>([]);
+  let selected = $state<Proposal | null>(null);
+  let preview = $state<ApplyResult | null>(null);
+  let lastApply = $state<ApplyResult | null>(null);
+  let auditEntries = $state<AuditEntry[]>([]);
 
   // Phase 2B: asset system. Demo resolution uses the dev pack (generated assets).
   const devPack = createGoldenGoalRushDevPack();
@@ -201,6 +221,54 @@
     project = { ...project, sounds: autoSyncSounds(project) };
     if (round && timeline) cues = buildSoundCues(project, timeline);
   }
+  async function propose(kind: string) {
+    aiBusy = true;
+    try {
+      let p: Proposal;
+      if (kind === "theme") p = await aiProvider.generateThemeProposal(project, aiPrompt);
+      else if (kind === "animation") p = await aiProvider.generateAnimationProposal(project, aiPrompt);
+      else if (kind === "sound") p = await aiProvider.generateSoundProposal(project, aiPrompt);
+      else if (kind === "math") p = await aiProvider.generateBalanceProposal(project, math ?? undefined, aiPrompt);
+      else if (kind === "reskin") p = await aiProvider.generateReskinProposal(project, aiPrompt);
+      else p = proposeProductionFixes(project);
+      proposals = [p, ...proposals].slice(0, 8);
+      selectProposal(p);
+    } finally {
+      aiBusy = false;
+    }
+  }
+  function selectProposal(p: Proposal) {
+    selected = p;
+    preview = applyProposal(project, p); // dry-run for diff + validation preview
+    lastApply = null;
+  }
+  function logAudit(p: Proposal, decision: "accepted" | "rejected", res: ApplyResult | null) {
+    audit.record({
+      prompt: aiPrompt,
+      proposalId: p.id,
+      proposalType: p.type,
+      summary: p.title,
+      decision,
+      validation: res ? (res.applied ? "passed" : "failed") : "n/a",
+      errors: res?.errors ?? [],
+    });
+    auditEntries = [...audit.entries()];
+  }
+  function acceptProposal() {
+    if (!selected) return;
+    const res = applyProposal(project, selected);
+    if (res.applied) project = res.project;
+    lastApply = res;
+    logAudit(selected, res.applied ? "accepted" : "rejected", res);
+  }
+  function rejectProposal() {
+    if (!selected) return;
+    logAudit(selected, "rejected", null);
+    selected = null;
+    preview = null;
+    lastApply = null;
+  }
+
   function doExport() {
     const stats = math ? { rtp: math.rtp.observed, hitFrequency: math.hitFrequency.mean, maxWin: math.maxWin } : undefined;
     const res = exportBundle(project, { profile: exportProfile, stats, devPack, mathReport: math ?? undefined, force: true });
@@ -255,7 +323,7 @@
 <div class="app">
   <header>
     <h1><span class="gold">SLOT</span> FACTORY</h1>
-    <span class="tag">Editor · Phase 3</span>
+    <span class="tag">Editor · Phase 4A</span>
     <span class="spacer"></span>
     <span class="proj">{project.projectName}</span>
     <span class="muted">{project.template} · {project.theme}</span>
@@ -453,6 +521,74 @@
       </div>
     </section>
   {/if}
+
+  <section class="copilot">
+    <div class="panel">
+      <h2>AI Copilot <span class="muted small">mock provider · no API key</span></h2>
+      <input class="prompt" placeholder="Describe a theme / idea (e.g. neon cyber)…" bind:value={aiPrompt} />
+      <div class="aibtns">
+        <button onclick={() => propose("theme")} disabled={aiBusy}>Theme</button>
+        <button onclick={() => propose("animation")} disabled={aiBusy}>Animation polish</button>
+        <button onclick={() => propose("sound")} disabled={aiBusy}>Sound mapping</button>
+        <button onclick={() => propose("math")} disabled={aiBusy}>Math balance</button>
+        <button onclick={() => propose("production")} disabled={aiBusy}>Production fixes</button>
+        <button onclick={() => propose("reskin")} disabled={aiBusy}>Reskin draft</button>
+      </div>
+      <p class="muted small">AI proposes — the Validator, Asset Registry and Math Lab decide. Nothing is applied without review.</p>
+      <h3>Proposals</h3>
+      {#if proposals.length === 0}<p class="muted">No proposals yet.</p>{/if}
+      {#each proposals as p (p.id)}
+        <button class="plistitem {selected?.id === p.id ? 'on' : ''}" onclick={() => selectProposal(p)}>
+          <span class="risk {p.risk}">{p.risk}</span> {p.title}
+        </button>
+      {/each}
+    </div>
+
+    <div class="panel">
+      <h2>Proposal Review</h2>
+      {#if selected}
+        <div class="row"><span>Type</span><b>{selected.type}</b></div>
+        <div class="row"><span>Risk</span><b class="risk {selected.risk}">{selected.risk}</b></div>
+        <div class="row"><span>Affected</span><b>{selected.affectedAreas.join(", ") || "—"}</b></div>
+        <p class="muted small">{selected.summary}</p>
+        {#if selected.blockedReason}
+          <p class="badge">⚠ blocked: {selected.blockedReason} — run a Math Lab simulation first.</p>
+        {/if}
+        <h3>Diff preview ({preview?.diff.length ?? 0} change(s))</h3>
+        <div class="diff">
+          {#each (preview?.diff ?? []).slice(0, 8) as d (d.path)}
+            <div class="dline"><span class="dpath">{d.path}</span><span class="dval">{d.before} → {d.after}</span></div>
+          {/each}
+          {#if (preview?.diff.length ?? 0) === 0}<p class="muted small">No field changes.</p>{/if}
+        </div>
+        <div class="row"><span>Validation (preview)</span><b class={preview && preview.errors.length === 0 ? "on" : "off"}>{preview && preview.errors.length === 0 ? "would pass" : "would fail"}</b></div>
+        <div class="actions">
+          <button class="primary" onclick={acceptProposal} disabled={!!selected.blockedReason}>Apply</button>
+          <button onclick={rejectProposal}>Reject</button>
+        </div>
+        {#if lastApply}
+          <p class="muted small {lastApply.applied ? '' : 'err'}">
+            {lastApply.applied ? "✅ Applied & validated." : `❌ Rolled back: ${lastApply.errors[0] ?? "validation failed"}`}
+          </p>
+        {/if}
+      {:else}
+        <p class="muted">Select a proposal to review its diff and validation before applying.</p>
+      {/if}
+    </div>
+
+    <div class="panel">
+      <h2>Audit Log</h2>
+      {#if auditEntries.length === 0}<p class="muted">No decisions yet.</p>{/if}
+      {#each [...auditEntries].reverse() as a (a.at + a.proposalId)}
+        <div class="auditrow">
+          <span class="risk {a.decision === 'accepted' ? 'low' : 'high'}">{a.decision}</span>
+          <span>{a.summary}</span>
+          <span class="muted small">{a.validation}</span>
+        </div>
+      {/each}
+      <p class="muted small">History only — holds no keys or secrets.</p>
+    </div>
+  </section>
 </div>
 
 <style>
@@ -473,6 +609,22 @@
   .suggest .act { font-size: 12px; }
   .suggest.warning .act { color: #f5c542; }
   @media (max-width: 1100px) { .mathlab { grid-template-columns: 1fr 1fr; } }
+  .copilot { display: grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap: 14px; padding: 0 14px 24px; align-items: start; }
+  .prompt { width: 100%; box-sizing: border-box; background: #0c120a; border: 1px solid #2d6a4f; border-radius: 8px; color: #e8e8e8; padding: 8px; margin-bottom: 8px; font-size: 13px; }
+  .aibtns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .plistitem { display: block; width: 100%; text-align: left; margin: 4px 0; }
+  .plistitem.on { border-color: #f5c542; }
+  .risk { font-size: 10px; padding: 1px 6px; border-radius: 6px; text-transform: uppercase; margin-right: 4px; }
+  .risk.low { color: #2d9c6f; border: 1px solid #1c5b40; }
+  .risk.medium { color: #e8b923; border: 1px solid #6b5418; }
+  .risk.high { color: #e63946; border: 1px solid #5a1d22; }
+  .diff { background: #0c120a; border-radius: 8px; padding: 8px; margin: 6px 0; }
+  .dline { font-size: 11px; padding: 2px 0; border-bottom: 1px dashed #16210f; }
+  .dpath { color: #2d9c6f; margin-right: 8px; }
+  .dval { color: #8a9388; }
+  .auditrow { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed #16210f; }
+  .err { color: #ff6b6b; }
+  @media (max-width: 1100px) { .copilot { grid-template-columns: 1fr; } }
   .panel { background: #0e140c; border: 1px solid #1c2b1a; border-radius: 12px; padding: 14px; }
   .panel h2 { font-size: 14px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 1px; }
   .panel h2 .score { color: #f5c542; float: right; }

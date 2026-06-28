@@ -49,6 +49,7 @@ slotmaker/
     asset-pipeline/    # asset resolver, dev pack, registry, manifest, importer (Phase 2B/2C)
     validator/         # checks, health score, safe auto-fix
     exporter/          # validated bundle + asset manifest, demo/production gate
+    ai-copilot/        # provider interface, mock provider, proposals, safe apply (Phase 4A)
   apps/
     editor/         # SvelteKit + PixiJS — builder, math lab, validator, export
   templates/cluster-6x5/      # skin-agnostic mechanic descriptor
@@ -111,7 +112,41 @@ balance assistant flags drift instead of trusting a single run.
 
 ---
 
-## Phase 3 — Heavy Math Lab (this branch)
+## Phase 4A — AI Slot Copilot Foundation (this branch)
+
+A **controlled** AI assistant: it *proposes*, the user *approves*, and the
+**Validator, Asset Registry and Math Lab stay the source of truth**. No silent
+mutation, no real assets, no API keys — a deterministic **mock provider** keeps
+tests and CI offline.
+
+![Phase 4A AI Copilot](docs/phase-4a-ai-copilot.png)
+
+> AI → Proposal → Diff → User Review → Apply → Validator. Math changes need a
+> simulation; asset changes respect the asset registry; export keeps its gate.
+
+- `@slotmaker/ai-copilot`:
+  - **Provider interface** (`AIProvider`) with theme / animation / sound / balance /
+    reskin generators, plus a deterministic **mock provider** (offline heuristics).
+  - **Proposal model** — typed, Zod-validated: id, type, title, summary, risk,
+    affected areas, config patch, required validation, provider metadata.
+  - **Safe patch system** — `applyProposal()` merges the patch, re-parses against
+    the schema, runs the Validator, and **rolls back** on any error. A safety guard
+    rejects proposals that try to mark assets `real`, carry secrets/keys, or rewrite
+    identity fields.
+  - **Audit log** — prompt / proposal / decision / validation outcome; holds no keys.
+- **Guardrails enforced in code + tests**:
+  - balance proposals **require a math report** (no fabricated RTP);
+  - applied asset proposals still resolve as **not real** (no fake reals);
+  - the audit log and proposals carry **no secrets/API keys**.
+- **Editor** — an AI Copilot panel: prompt, built-in actions (theme / animation /
+  sound / math / production fixes / reskin), proposal list, **diff preview**, risk
+  badge, **Apply / Reject**, post-apply validation, and the audit log. Applying the
+  animation proposal visibly raises Health (animation 40 → 100).
+
+**Next (planned):** 4B AI theme/asset prompt generator · 4C AI balance assistant vs
+Math Lab · 4D one-click reskin drafts.
+
+## Phase 3 — Heavy Math Lab
 
 Prove the slot's math fast, with confidence — not a single RTP number you have to
 trust. All simulation is seeded and reproducible; the editor runs large sims in a
