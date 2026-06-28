@@ -14,6 +14,7 @@ export default defineConfig({
       "@slotmaker/asset-pipeline": pkg("packages/asset-pipeline/src/index.ts"),
       "@slotmaker/validator": pkg("packages/validator/src/index.ts"),
       "@slotmaker/exporter": pkg("packages/exporter/src/index.ts"),
+      "@slotmaker/ai-copilot": pkg("packages/ai-copilot/src/index.ts"),
     },
   },
   test: {
