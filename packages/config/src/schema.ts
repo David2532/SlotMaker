@@ -89,6 +89,11 @@ export const FeatureFlags = z.object({
   freeSpins: z.boolean().default(false),
   coinCollector: z.boolean().default(false),
   bonusBuy: z.boolean().default(false),
+  lineWins: z.boolean().default(false),
+  expandingSymbolFreeSpins: z.boolean().default(false),
+  freeSpinMultiplier: z.boolean().default(false),
+  holdAndWinRespins: z.boolean().default(false),
+  anteBet: z.boolean().default(false),
 });
 export type FeatureFlags = z.infer<typeof FeatureFlags>;
 
@@ -127,6 +132,42 @@ export const AssetRegistry = z.object({
   symbols: z.record(z.string(), AssetStates).default({}),
 });
 export type AssetRegistry = z.infer<typeof AssetRegistry>;
+
+export const CharacterPosition = z.enum(["left", "right"]);
+export type CharacterPosition = z.infer<typeof CharacterPosition>;
+
+export const CharacterConfig = z.object({
+  enabled: z.boolean().default(false),
+  id: z.string().min(1).default("sidekick"),
+  name: z.string().min(1).default("Sidekick"),
+  description: z.string().default("Generated helper character for the selected theme."),
+  position: CharacterPosition.default("right"),
+  assetStatus: AssetStatus.default("generated"),
+  asset: z.string().optional(),
+  requiredForProduction: z.boolean().default(true),
+});
+export type CharacterConfig = z.infer<typeof CharacterConfig>;
+
+export const MechanicImplementationStatus = z.enum(["implemented", "partial", "planned"]);
+export type MechanicImplementationStatus = z.infer<typeof MechanicImplementationStatus>;
+
+export const TemplateMechanicStatus = z.object({
+  featureId: z.string().min(1),
+  status: MechanicImplementationStatus,
+  note: z.string().default(""),
+});
+export type TemplateMechanicStatus = z.infer<typeof TemplateMechanicStatus>;
+
+export const TemplateMeta = z.object({
+  templateName: z.string().min(1),
+  winSystem: z.string().min(1),
+  complexity: z.enum(["easy", "medium", "advanced"]).default("medium"),
+  bestFor: z.string().default("Fast slot prototyping."),
+  mechanicStatus: z.array(TemplateMechanicStatus).default([]),
+  warnings: z.array(z.string()).default([]),
+  nextActions: z.array(z.string()).default([]),
+});
+export type TemplateMeta = z.infer<typeof TemplateMeta>;
 
 /** Canonical animation event names every slot understands. */
 export const AnimationEvent = z.enum([
@@ -177,6 +218,8 @@ export const SlotProject = z.object({
   math: MathConfig,
   symbols: z.array(SymbolDef).min(1),
   assets: AssetRegistry.default({ symbols: {} }),
+  character: CharacterConfig.optional(),
+  templateMeta: TemplateMeta.optional(),
   animations: z.array(AnimationBinding).default([]),
   sounds: z.array(SoundBinding).default([]),
 });

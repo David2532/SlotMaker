@@ -81,6 +81,65 @@ pnpm editor:build  # production build of the editor
 
 `pnpm sim` accepts args: `pnpm sim <projectPath> <spins> <seed>`.
 
+---
+
+## Product UX phase - Template Wizard
+
+The editor now starts as a product-facing **Project Hub** instead of a dense
+debug dashboard. The intended first-time flow is:
+
+1. Open the Project Hub.
+2. Click **New Slot**.
+3. Choose a template.
+4. Choose a theme.
+5. Confirm layout, volatility and RTP target.
+6. Review features and character.
+7. Create the project and continue in the Builder.
+
+![Product UX Template Wizard](docs/product-ux-template-wizard.png)
+
+### Template system
+
+Templates live in `@slotmaker/config` as a typed registry. They are not just UI
+labels: each template defines grid, win system, default RTP, volatility, symbols,
+feature flags, math defaults, animation/sound presets, asset requirements,
+production blockers and supported preview states.
+
+Current templates:
+
+| Template | Type | Status |
+| --- | --- | --- |
+| Golden Goal Rush | Cluster 6x5 | Implemented |
+| Gem Bonanza | Tumble multiplier | Partial multiplier/ante intent |
+| Ancient Book Adventure | Book-style 5x3 | Partial line/expanding-symbol intent |
+| Candy Cascade | Candy cluster | Partial sugar-rush multiplier intent |
+| Classic Fruits | Classic lines 5x3 | Partial line-pay runtime |
+| Gold Collector | Coin collector | Planned hold-and-win respins |
+
+If a mechanic is not fully implemented, the template card and generated project
+show that status. The config keeps TODO warnings in `templateMeta`, and the
+validator surfaces them instead of pretending production is complete.
+
+### Builder navigation
+
+After project creation, the Builder uses a focused layout:
+
+- **Top bar:** project, template, health, RTP, production readiness, Validate,
+  Export and Run 100k Sim.
+- **Left rail:** Overview, Board, Symbols, Features, Character, Animation, Sound,
+  Math, Copilot and Export.
+- **Center:** live PixiJS slot preview with Preview Studio modes.
+- **Right inspector:** contextual health, asset and validation warnings.
+- **Beginner / Advanced toggle:** beginner mode shows practical cards; advanced
+  mode exposes extra timeline/math/session detail.
+
+### Demo vs production
+
+Demo export is allowed with generated placeholder assets. Production export is
+blocked until critical assets, including required character art, resolve as real.
+The Export Center shows exact blockers, math report status, asset manifest status
+and a one-click copy summary for PR/testing notes.
+
 ### Example: `pnpm sim`
 
 ```

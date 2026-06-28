@@ -71,6 +71,25 @@ describe("assessProduction", () => {
     expect(p.blockers.every((b) => b.critical)).toBe(true);
   });
 
+  it("blocks production when a required character is still generated", () => {
+    const withCharacter: SlotProject = {
+      ...project,
+      character: {
+        enabled: true,
+        id: "mascot",
+        name: "Mascot",
+        description: "Generated mascot",
+        position: "right",
+        assetStatus: "generated",
+        asset: "gen:character/mascot",
+        requiredForProduction: true,
+      },
+    };
+    const p = assessProduction(withCharacter);
+    expect(p.ready).toBe(false);
+    expect(p.blockers.some((b) => b.key === "character:mascot" && b.status === "generated")).toBe(true);
+  });
+
   it("is ready once every critical slot has a real asset", () => {
     // Give every symbol a real static asset and every critical sound a real file.
     const real = new Set<string>();

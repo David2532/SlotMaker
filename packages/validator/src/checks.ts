@@ -187,6 +187,20 @@ export function checkMobile(project: SlotProject): Issue[] {
   return issues;
 }
 
+export function checkTemplateMechanics(project: SlotProject): Issue[] {
+  const issues: Issue[] = [];
+  for (const mechanic of project.templateMeta?.mechanicStatus ?? []) {
+    if (mechanic.status === "implemented") continue;
+    issues.push({
+      category: "math",
+      severity: mechanic.status === "planned" ? "warning" : "info",
+      message: `${mechanic.featureId} is ${mechanic.status}: ${mechanic.note}`,
+      autoFixable: false,
+    });
+  }
+  return issues;
+}
+
 export function collectIssues(project: SlotProject, stats?: MathStats): Issue[] {
   return [
     ...checkAssets(project),
@@ -195,5 +209,6 @@ export function collectIssues(project: SlotProject, stats?: MathStats): Issue[] 
     ...checkAnimation(project),
     ...checkSound(project),
     ...checkMobile(project),
+    ...checkTemplateMechanics(project),
   ];
 }
