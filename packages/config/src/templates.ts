@@ -100,6 +100,7 @@ const featureDefaults = (input: FeatureFlags): FeatureFlags => ({
   freeSpinMultiplier: input.freeSpinMultiplier,
   holdAndWinRespins: input.holdAndWinRespins,
   anteBet: input.anteBet,
+  wildSubstitution: input.wildSubstitution,
 });
 
 const flags = (partial: Partial<FeatureFlags>): FeatureFlags => ({
@@ -113,6 +114,7 @@ const flags = (partial: Partial<FeatureFlags>): FeatureFlags => ({
   freeSpinMultiplier: false,
   holdAndWinRespins: false,
   anteBet: false,
+  wildSubstitution: false,
   ...partial,
 });
 
@@ -286,12 +288,12 @@ export const TEMPLATE_REGISTRY: SlotTemplateDefinition[] = [
     volatility: "high",
     complexity: "advanced",
     bestFor: "High-energy tumble games with scatter free spins and a multiplier promise.",
-    mechanics: ["clusterPays", "cascade", "scatterFreeSpins", "freeSpinMultiplier", "anteBet"],
+    mechanics: ["clusterPays", "cascade", "scatterFreeSpins", "progressiveFreeSpinMultiplier", "anteBet"],
     mechanicStatus: [
       implemented("clusterPays", "Cluster pays power the current preview runtime."),
       implemented("cascade", "Tumbles are represented by the existing cascade loop."),
       implemented("scatterFreeSpins", "Scatter-triggered free spins are supported."),
-      partial("freeSpinMultiplier", "A fixed free-spin multiplier exists; progressive multiplier UI/runtime is still pending."),
+      partial("progressiveFreeSpinMultiplier", "A fixed free-spin multiplier exists; progressive multiplier UI/runtime is still pending."),
       planned("anteBet", "Ante bet is defined in the template but not yet simulated."),
     ],
     features: flags({ clusterWins: true, cascades: true, freeSpins: true, freeSpinMultiplier: true, anteBet: true }),
@@ -376,21 +378,20 @@ export const TEMPLATE_REGISTRY: SlotTemplateDefinition[] = [
     id: "candy_cascade",
     displayName: "Candy Cascade",
     type: "Candy Cluster",
-    description: "Candy-symbol cluster game with cascades and placeholder booster/sugar-rush feature intent.",
+    description: "Candy-symbol cluster game with cascades and scatter-triggered free spins.",
     grid: { columns: 6, rows: 5, cellSize: 90 },
     winSystem: "cluster",
     defaultRtpTarget: 96,
     volatility: "medium",
     complexity: "medium",
     bestFor: "Bright, approachable cascade games with friendly production scope.",
-    mechanics: ["clusterPays", "cascade", "scatterFreeSpins", "freeSpinMultiplier"],
+    mechanics: ["clusterPays", "cascade", "scatterFreeSpins"],
     mechanicStatus: [
       implemented("clusterPays", "Cluster pays are implemented."),
       implemented("cascade", "Cascade loop is implemented."),
       implemented("scatterFreeSpins", "Sugar-rush free spins use scatter trigger config."),
-      partial("freeSpinMultiplier", "Sugar-rush booster/multiplier behavior is represented as config intent."),
     ],
-    features: flags({ clusterWins: true, cascades: true, freeSpins: true, freeSpinMultiplier: true }),
+    features: flags({ clusterWins: true, cascades: true, freeSpins: true }),
     math: { ...DEFAULT_MATH, targetRtp: 96, volatility: "medium", maxWin: 7500, hitFrequencyTarget: 31, bonusFrequencyTarget: 170, freeSpins: { triggerScatters: 4, spinsAwarded: 10, multiplier: 2 } },
     symbols: [
       sym("jelly", "Jelly", "low", "#ef476f", "JEL", 135, lowPays(1.2)),
@@ -409,7 +410,7 @@ export const TEMPLATE_REGISTRY: SlotTemplateDefinition[] = [
     animationPreset: "cascade_pop",
     soundPreset: "candy",
     assetRequirements: ["Candy symbol states", "Candy-shop background", "Sugar-rush scatter", "Mascot placeholder"],
-    productionBlockers: ["Sugar-rush booster logic is partial.", "Generated candy mascot must be replaced if enabled."],
+    productionBlockers: ["Generated candy mascot must be replaced if enabled."],
     supportedPreviewStates: ["idle", "spin", "small_win", "big_win", "free_spins_trigger", "cascade_chain"],
     character: {
       id: "candy-mascot",
@@ -531,6 +532,55 @@ export function templateMechanicStatuses(template: SlotTemplateDefinition): Temp
 
 export function templateHasPartialMechanics(template: SlotTemplateDefinition): boolean {
   return template.mechanicStatus.some((m) => m.status !== "implemented");
+}
+
+export type TemplateReadinessStatus = "fully-implemented" | "partially-implemented" | "coming-soon";
+
+export interface TemplateReadiness {
+  status: TemplateReadinessStatus;
+  label: "Fully implemented" | "Partially implemented" | "Coming soon";
+  createEnabled: boolean;
+  implementedMechanics: TemplateMechanic[];
+  blockedMechanics: TemplateMechanic[];
+  missingRequirements: string[];
+}
+
+export function getTemplateReadiness(template: SlotTemplateDefinition): TemplateReadiness {
+  const implementedMechanics = template.mechanicStatus.filter((m) => m.status === "implemented");
+  const blockedMechanics = template.mechanicStatus.filter((m) => m.status !== "implemented");
+  const status: TemplateReadinessStatus =
+    blockedMechanics.length === 0
+      ? "fully-implemented"
+      : blockedMechanics.some((m) => m.status === "planned")
+        ? "coming-soon"
+        : "partially-implemented";
+
+  return {
+    status,
+    label:
+      status === "fully-implemented"
+        ? "Fully implemented"
+        : status === "coming-soon"
+          ? "Coming soon"
+          : "Partially implemented",
+    createEnabled: blockedMechanics.length === 0,
+    implementedMechanics,
+    blockedMechanics,
+    missingRequirements: blockedMechanics.map((m) => `${m.featureId}: ${m.note}`),
+  };
+}
+
+export function canCreateTemplate(templateOrId: SlotTemplateDefinition | TemplateId): boolean {
+  const template = typeof templateOrId === "string" ? getTemplateDefinition(templateOrId) : templateOrId;
+  return getTemplateReadiness(template).createEnabled;
+}
+
+export function advertisedTemplateMechanics(template: SlotTemplateDefinition): TemplateMechanic[] {
+  return getTemplateReadiness(template).implementedMechanics;
+}
+
+export function getDefaultCreatableTemplate(): SlotTemplateDefinition {
+  return TEMPLATE_REGISTRY.find((template) => canCreateTemplate(template)) ?? getDefaultTemplate();
 }
 
 export function createProjectFromTemplate(templateId: TemplateId, options: CreateProjectOptions = {}): SlotProjectType {

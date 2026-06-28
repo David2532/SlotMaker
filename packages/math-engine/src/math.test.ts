@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadProject, type SlotProject } from "@slotmaker/config";
+import { canCreateTemplate, createProjectFromTemplate, loadProject, TEMPLATE_REGISTRY, type SlotProject } from "@slotmaker/config";
 import { simulate, suggestBalance } from "./index.js";
 import golden from "../../../projects/golden-goal-rush.json";
 
@@ -32,6 +32,17 @@ describe("simulate", () => {
     const r = simulate(project, { spins, seed: 5 });
     const total = r.distribution.reduce((s, b) => s + b.count, 0);
     expect(total).toBe(spins);
+  });
+
+  it("runs a math smoke for every create-enabled template", () => {
+    for (const template of TEMPLATE_REGISTRY.filter((t) => canCreateTemplate(t))) {
+      const p = createProjectFromTemplate(template.id);
+      const r = simulate(p, { spins: 1000, seed: 11 });
+      expect(Number.isFinite(r.rtp)).toBe(true);
+      expect(r.distribution.reduce((sum, bucket) => sum + bucket.count, 0)).toBe(1000);
+      expect(r.maxWin).toBeLessThanOrEqual(p.math.maxWin);
+      if (p.features.freeSpins) expect(Number.isFinite(r.bonusFrequency) || r.bonusFrequency === Infinity).toBe(true);
+    }
   });
 });
 

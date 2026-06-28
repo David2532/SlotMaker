@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadProject, type SlotProject } from "@slotmaker/config";
+import { createProjectFromTemplate, loadProject, type SlotProject } from "@slotmaker/config";
 import { buildMathReport, multiSeedSimulate } from "@slotmaker/math-engine";
 import { autoFix, checkAssetResolution, checkMathReport, checkSound, checkSymbolStates, computeHealth } from "./index.js";
 import golden from "../../../projects/golden-goal-rush.json";
@@ -18,6 +18,16 @@ describe("computeHealth", () => {
   it("marks export ready when there are no errors", () => {
     const report = computeHealth(project);
     expect(report.exportReady).toBe(report.issues.every((i) => i.severity !== "error"));
+  });
+
+  it("flags preview-only templates that advertise incomplete mechanics", () => {
+    const report = computeHealth(createProjectFromTemplate("gold_collector"));
+    expect(report.issues.some((i) => /Hold-and-Win Respins is advertised but planned/.test(i.message))).toBe(true);
+  });
+
+  it("does not flag template mechanic readiness for create-enabled Candy Cascade", () => {
+    const report = computeHealth(createProjectFromTemplate("candy_cascade"));
+    expect(report.issues.some((i) => /advertised but/.test(i.message))).toBe(false);
   });
 });
 

@@ -94,6 +94,7 @@ export const FeatureFlags = z.object({
   freeSpinMultiplier: z.boolean().default(false),
   holdAndWinRespins: z.boolean().default(false),
   anteBet: z.boolean().default(false),
+  wildSubstitution: z.boolean().default(false),
 });
 export type FeatureFlags = z.infer<typeof FeatureFlags>;
 

@@ -13,6 +13,10 @@
     TEMPLATE_REGISTRY,
     WIZARD_STEPS,
     canCompleteWizard,
+    advertisedTemplateMechanics,
+    canCreateTemplate,
+    getDefaultCreatableTemplate,
+    getTemplateReadiness,
     type AnimationEvent,
     type ExportProfile,
     type FeatureFlags,
@@ -97,8 +101,6 @@
   const aiProvider = createMockProvider();
   const audit = createAuditLog();
   const sampleProjects = [
-    createProjectFromTemplate("gem_bonanza_tumble", { projectName: "Gem Bonanza Draft" }),
-    createProjectFromTemplate("ancient_book_adventure", { projectName: "Ancient Book Draft" }),
     createProjectFromTemplate("candy_cascade", { projectName: "Candy Cascade Draft" }),
   ];
 
@@ -203,8 +205,19 @@
 
   const pctI = (n: number) => `${Math.round(n * 100)}%`;
   const pct = (n: number) => `${n.toFixed(2)}%`;
-  const templateStatusLabel = (t: SlotTemplateDefinition) =>
-    t.mechanicStatus.some((m) => m.status === "planned") ? "Planned parts" : t.mechanicStatus.some((m) => m.status === "partial") ? "Partial" : "Implemented";
+  const templateStatusLabel = (t: SlotTemplateDefinition) => getTemplateReadiness(t).label;
+  const templateStatusClass = (t: SlotTemplateDefinition) => getTemplateReadiness(t).status;
+  const templateActionLabel = (t: SlotTemplateDefinition) => {
+    const readiness = getTemplateReadiness(t);
+    if (readiness.createEnabled) return "Create";
+    return readiness.status === "coming-soon" ? "Coming Soon" : "Preview only";
+  };
+  const missingMechanicSummary = (t: SlotTemplateDefinition) => {
+    const missing = getTemplateReadiness(t).blockedMechanics.map((m) => getFeatureDefinition(m.featureId).displayName);
+    if (missing.length === 0) return "";
+    const visible = missing.slice(0, 2).join(", ");
+    return missing.length > 2 ? `${visible} +${missing.length - 2} more` : visible;
+  };
 
   function toastMsg(message: string) {
     toast = message;
@@ -224,13 +237,17 @@
 
   function startWizard(templateId?: TemplateId) {
     wizard = createInitialWizardState();
-    const template = templateId ? getTemplateDefinition(templateId) : TEMPLATE_REGISTRY[0]!;
+    const template = templateId ? getTemplateDefinition(templateId) : getDefaultCreatableTemplate();
+    if (!canCreateTemplate(template)) {
+      toastMsg(`${template.displayName} is preview-only until missing mechanics are implemented.`);
+      return;
+    }
     wizard.selectedTemplateId = template.id;
     wizard.selectedThemeId = template.defaultThemeId;
     wizard.projectName = `${template.displayName} Draft`;
     wizard.rtpTarget = template.defaultRtpTarget;
     wizard.volatility = template.volatility;
-    wizard.enabledFeatures = [...template.mechanics];
+    wizard.enabledFeatures = advertisedTemplateMechanics(template).map((m) => m.featureId);
     wizard.characterEnabled = true;
     wizard.step = "template";
     view = "wizard";
@@ -238,12 +255,16 @@
 
   function chooseWizardTemplate(templateId: TemplateId) {
     const template = getTemplateDefinition(templateId);
+    if (!canCreateTemplate(template)) {
+      toastMsg(`${template.displayName} is not creatable yet.`);
+      return;
+    }
     wizard.selectedTemplateId = template.id;
     wizard.selectedThemeId = template.defaultThemeId;
     wizard.projectName = `${template.displayName} Draft`;
     wizard.rtpTarget = template.defaultRtpTarget;
     wizard.volatility = template.volatility;
-    wizard.enabledFeatures = [...template.mechanics];
+    wizard.enabledFeatures = advertisedTemplateMechanics(template).map((m) => m.featureId);
   }
 
   function toggleWizardFeature(id: FeatureId) {
@@ -264,6 +285,10 @@
 
   function createWizardProject() {
     if (!canCompleteWizard(wizard) || !wizard.selectedTemplateId) return;
+    if (!canCreateTemplate(wizard.selectedTemplateId)) {
+      toastMsg("This template is preview-only until all mechanics are implemented.");
+      return;
+    }
     const next = createProjectFromTemplate(wizard.selectedTemplateId, {
       projectName: wizard.projectName,
       themeId: wizard.selectedThemeId,
@@ -585,6 +610,7 @@
       </div>
       <div class="cards gallery">
         {#each TEMPLATE_REGISTRY as template (template.id)}
+          {@const readiness = getTemplateReadiness(template)}
           <article class="templatecard">
             <div class="mock" style={`--a:${template.themes[0]?.palette[1] ?? "#f5c542"}; --b:${template.themes[0]?.palette[2] ?? "#2d6a4f"}`}>
               <div class="mockgrid" style={`grid-template-columns: repeat(${template.grid.columns}, 1fr);`}>
@@ -595,7 +621,7 @@
             </div>
             <div class="cardtop">
               <span class="statuspill">{template.type}</span>
-              <span class={`statuspill ${templateStatusLabel(template).toLowerCase().replace(" ", "-")}`}>{templateStatusLabel(template)}</span>
+              <span class={`statuspill ${templateStatusClass(template)}`}>{templateStatusLabel(template)}</span>
             </div>
             <h3>{template.displayName}</h3>
             <p>{template.description}</p>
@@ -607,11 +633,19 @@
             </div>
             <p class="best">Best for: {template.bestFor}</p>
             <div class="mechanics">
-              {#each template.mechanicStatus as m (`${template.id}-${m.featureId}`)}
-                <span class={m.status}>{getFeatureDefinition(m.featureId).displayName}</span>
+              {#each advertisedTemplateMechanics(template) as m (`${template.id}-${m.featureId}`)}
+                <span class="implemented">{getFeatureDefinition(m.featureId).displayName}</span>
               {/each}
             </div>
-            <button class="primary full" onclick={() => startWizard(template.id)}>Create</button>
+            {#if readiness.blockedMechanics.length > 0}
+              <div class="missinglist">
+                <b>Missing before Create</b>
+                {#each readiness.blockedMechanics as m (`missing-${template.id}-${m.featureId}`)}
+                  <span>{getFeatureDefinition(m.featureId).displayName}: {m.note}</span>
+                {/each}
+              </div>
+            {/if}
+            <button class="primary full" disabled={!readiness.createEnabled} onclick={() => startWizard(template.id)}>{templateActionLabel(template)}</button>
           </article>
         {/each}
       </div>
@@ -642,15 +676,17 @@
             <p class="muted">Start from mechanics, not blank config.</p>
             <div class="cards compact">
               {#each TEMPLATE_REGISTRY as template (template.id)}
-                <button class="selectcard" class:active={wizard.selectedTemplateId === template.id} onclick={() => chooseWizardTemplate(template.id)}>
+                {@const readiness = getTemplateReadiness(template)}
+                <button class="selectcard" class:active={wizard.selectedTemplateId === template.id} disabled={!readiness.createEnabled} onclick={() => chooseWizardTemplate(template.id)}>
                   <span class="statuspill">{template.type}</span>
                   <h3>{template.displayName}</h3>
                   <p>{template.bestFor}</p>
                   <div class="badges">
                     <span>{template.grid.columns}x{template.grid.rows}</span>
                     <span>{template.volatility}</span>
-                    <span>{templateStatusLabel(template)}</span>
+                    <span class={templateStatusClass(template)}>{templateStatusLabel(template)}</span>
                   </div>
+                  {#if !readiness.createEnabled}<p class="missingline">Missing: {missingMechanicSummary(template)}</p>{/if}
                 </button>
               {/each}
             </div>
@@ -686,9 +722,9 @@
             </div>
           {:else if wizard.step === "features"}
             <h2>Choose features</h2>
-            <p class="muted">Partial and planned features stay clearly labeled.</p>
+            <p class="muted">Only implemented and tested mechanics are selectable.</p>
             <div class="featurelist">
-              {#each selectedWizardTemplate?.mechanicStatus ?? [] as m (m.featureId)}
+              {#each selectedWizardTemplate ? advertisedTemplateMechanics(selectedWizardTemplate) : [] as m (m.featureId)}
                 {@const feature = getFeatureDefinition(m.featureId)}
                 <label class="featuretoggle">
                   <input type="checkbox" checked={wizard.enabledFeatures.includes(m.featureId)} onchange={() => toggleWizardFeature(m.featureId)} />
@@ -844,16 +880,24 @@
               <div class="panel">
                 <h2>Features</h2>
                 <div class="featurecards">
-                  {#each currentTemplate.mechanicStatus as m (m.featureId)}
+                  {#each advertisedTemplateMechanics(currentTemplate) as m (m.featureId)}
                     {@const feature = getFeatureDefinition(m.featureId)}
-                    <div class={m.status}>
-                      <span>{m.status}</span>
+                    <div class="implemented">
+                      <span>implemented</span>
                       <h3>{feature.displayName}</h3>
                       <p>{feature.description}</p>
                       <small>{m.note}</small>
                     </div>
                   {/each}
                 </div>
+                {#if getTemplateReadiness(currentTemplate).blockedMechanics.length > 0}
+                  <div class="missinglist">
+                    <b>Preview-only mechanics still missing</b>
+                    {#each getTemplateReadiness(currentTemplate).blockedMechanics as m (m.featureId)}
+                      <span>{getFeatureDefinition(m.featureId).displayName}: {m.note}</span>
+                    {/each}
+                  </div>
+                {/if}
               </div>
             {:else if activeTab === "character"}
               <div class="panel characterpanel">
@@ -1066,7 +1110,9 @@
   .cards.compact { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .projectcard, .selectcard { text-align: left; }
   .statuspill { display: inline-flex; align-items: center; min-height: 24px; border: 1px solid #2b3940; border-radius: 999px; padding: 3px 9px; color: #b8c4c9; font-size: 12px; white-space: nowrap; }
-  .statuspill.partial, .statuspill.planned-parts, .warning, .info { color: #f5c542; }
+  .statuspill.fully-implemented, .badges .fully-implemented { color: #43b477; border-color: #1f5f42; }
+  .statuspill.partially-implemented, .badges .partially-implemented, .warning, .info { color: #f5c542; border-color: #6b5418; }
+  .statuspill.coming-soon, .badges .coming-soon { color: #9d8cff; border-color: #51428e; }
   .bad, .danger, .error { color: #ff6b6b !important; }
   .ok { color: #43b477; }
   .gridmeta, .overviewgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -1078,8 +1124,10 @@
   .cardtop, .badges, .mechanics { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .badges span, .mechanics span { border: 1px solid #2b3940; border-radius: 999px; padding: 3px 8px; color: #b8c4c9; font-size: 11px; }
   .mechanics .implemented { color: #43b477; border-color: #1f5f42; }
-  .mechanics .partial { color: #f5c542; border-color: #6b5418; }
-  .mechanics .planned { color: #9d8cff; border-color: #51428e; }
+  .missinglist { border-top: 1px dashed #263238; margin-top: 12px; padding-top: 10px; display: grid; gap: 6px; }
+  .missinglist b { color: #f5c542; font-size: 12px; }
+  .missinglist span, .missingline { color: #aab4b8; font-size: 12px; line-height: 1.35; }
+  .missingline { margin: 8px 0 0; }
   .best { font-size: 13px; }
   .full { width: 100%; justify-content: center; margin-top: 14px; }
   .wizardbar, .topbar { display: flex; align-items: center; gap: 12px; }
@@ -1123,8 +1171,6 @@
   .featurecards > div { border: 1px solid #263238; border-radius: 8px; padding: 12px; }
   .featurecards span { text-transform: uppercase; font-size: 11px; color: #8f9ca3; }
   .featurecards .implemented { border-color: #1f5f42; }
-  .featurecards .partial { border-color: #6b5418; }
-  .featurecards .planned { border-color: #51428e; }
   .symboltable { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
   .symboltable div { display: grid; grid-template-columns: 48px 1fr; gap: 8px; align-items: center; border: 1px solid #263238; border-radius: 8px; padding: 8px; }
   .symboltable em { grid-column: 2; color: #8f9ca3; font-style: normal; font-size: 12px; }

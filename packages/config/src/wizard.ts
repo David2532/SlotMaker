@@ -1,5 +1,5 @@
 import type { FeatureId } from "./features.js";
-import type { TemplateId } from "./templates.js";
+import { canCreateTemplate, getTemplateDefinition, type TemplateId } from "./templates.js";
 import type { Volatility } from "./schema.js";
 
 export type WizardStep = "template" | "theme" | "math" | "features" | "symbols" | "create";
@@ -55,5 +55,10 @@ export function previousWizardStep(step: WizardStep): WizardStep {
 }
 
 export function canCompleteWizard(state: WizardState): boolean {
-  return Boolean(state.selectedTemplateId && state.selectedThemeId && state.projectName.trim().length > 0);
+  if (!state.selectedTemplateId || !state.selectedThemeId || state.projectName.trim().length === 0) return false;
+  try {
+    return canCreateTemplate(getTemplateDefinition(state.selectedTemplateId));
+  } catch {
+    return false;
+  }
 }

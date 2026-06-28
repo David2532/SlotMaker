@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  advertisedTemplateMechanics,
   canCompleteWizard,
+  canCreateTemplate,
   createInitialWizardState,
   createProjectFromTemplate,
   FEATURE_REGISTRY,
   getTemplateDefinition,
+  getTemplateReadiness,
   parseProject,
   TEMPLATE_REGISTRY,
   templateHasPartialMechanics,
@@ -28,6 +31,7 @@ describe("template registry", () => {
     expect(template.displayName).toBe("Golden Goal Rush");
     expect(template.grid).toMatchObject({ columns: 6, rows: 5 });
     expect(template.mechanicStatus.every((m) => m.status === "implemented")).toBe(true);
+    expect(canCreateTemplate(template)).toBe(true);
   });
 
   it("marks unfinished mechanics instead of pretending they are complete", () => {
@@ -39,28 +43,59 @@ describe("template registry", () => {
       expect.objectContaining({ featureId: "holdAndWinRespins", status: "planned" }),
     );
   });
+
+  it("allows Create only for fully implemented templates", () => {
+    expect(TEMPLATE_REGISTRY.filter((t) => canCreateTemplate(t)).map((t) => t.id)).toEqual([
+      "cluster_6x5_collector",
+      "candy_cascade",
+    ]);
+    expect(getTemplateReadiness(getTemplateDefinition("gem_bonanza_tumble"))).toMatchObject({
+      status: "coming-soon",
+      createEnabled: false,
+    });
+    expect(getTemplateReadiness(getTemplateDefinition("ancient_book_adventure"))).toMatchObject({
+      status: "partially-implemented",
+      createEnabled: false,
+    });
+  });
+
+  it("advertises only implemented mechanics as UI badges", () => {
+    const gemBadges = advertisedTemplateMechanics(getTemplateDefinition("gem_bonanza_tumble")).map((m) => m.featureId);
+    expect(gemBadges).toEqual(["clusterPays", "cascade", "scatterFreeSpins"]);
+    expect(gemBadges).not.toContain("progressiveFreeSpinMultiplier");
+    expect(gemBadges).not.toContain("anteBet");
+
+    const candy = getTemplateDefinition("candy_cascade");
+    expect(getTemplateReadiness(candy).status).toBe("fully-implemented");
+    expect(advertisedTemplateMechanics(candy).map((m) => m.featureId)).toEqual([
+      "clusterPays",
+      "cascade",
+      "scatterFreeSpins",
+    ]);
+  });
 });
 
 describe("feature registry", () => {
   it("defines implementation status for advanced feature types", () => {
     expect(FEATURE_REGISTRY.find((f) => f.id === "scatterFreeSpins")?.implementedStatus).toBe("implemented");
     expect(FEATURE_REGISTRY.find((f) => f.id === "linePays")?.implementedStatus).toBe("partial");
+    expect(FEATURE_REGISTRY.find((f) => f.id === "progressiveFreeSpinMultiplier")?.runtimeSupport).toBe(false);
     expect(FEATURE_REGISTRY.find((f) => f.id === "anteBet")?.implementedStatus).toBe("planned");
+    expect(FEATURE_REGISTRY.find((f) => f.id === "wildSubstitution")?.configKey).toBe("wildSubstitution");
   });
 });
 
 describe("createProjectFromTemplate", () => {
   it.each([
     ["cluster_6x5_collector", 6, 5],
-    ["gem_bonanza_tumble", 6, 5],
-    ["ancient_book_adventure", 5, 3],
     ["candy_cascade", 6, 5],
-  ] as const)("creates a valid project for %s", (templateId, columns, rows) => {
+  ] as const)("creates a valid creatable project for %s", (templateId, columns, rows) => {
     const project = createProjectFromTemplate(templateId, { projectName: `Test ${templateId}` });
     expect(project.grid).toMatchObject({ columns, rows });
     expect(parseProject(project).ok).toBe(true);
     expect(project.symbols.length).toBeGreaterThan(0);
     expect(project.templateMeta?.templateName).toBe(getTemplateDefinition(templateId).displayName);
+    expect(project.templateMeta?.mechanicStatus.every((m) => m.status === "implemented")).toBe(true);
   });
 
   it("creates a book-style config with line intent and expanding-symbol warnings", () => {
@@ -76,6 +111,7 @@ describe("createProjectFromTemplate", () => {
     expect(project.features.cascades).toBe(true);
     expect(project.features.freeSpinMultiplier).toBe(true);
     expect(project.features.anteBet).toBe(true);
+    expect(project.templateMeta?.warnings.join(" ")).toContain("progressiveFreeSpinMultiplier");
     expect(project.templateMeta?.warnings.join(" ")).toContain("anteBet");
   });
 });
@@ -94,5 +130,13 @@ describe("wizard state", () => {
     state.selectedThemeId = "football_black_gold";
     state.projectName = "My Slot";
     expect(canCompleteWizard(state)).toBe(true);
+  });
+
+  it("cannot complete for a preview-only template", () => {
+    const state = createInitialWizardState();
+    state.selectedTemplateId = "gem_bonanza_tumble";
+    state.selectedThemeId = "gem_cave_neon";
+    state.projectName = "Gem Draft";
+    expect(canCompleteWizard(state)).toBe(false);
   });
 });

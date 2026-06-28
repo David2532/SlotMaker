@@ -1,5 +1,5 @@
-import { AnimationEvent as AnimationEventEnum, OPTIONAL_SYMBOL_STATES } from "@slotmaker/config";
-import type { AnimationEvent, SlotProject } from "@slotmaker/config";
+import { AnimationEvent as AnimationEventEnum, getFeatureDefinition, OPTIONAL_SYMBOL_STATES } from "@slotmaker/config";
+import type { AnimationEvent, FeatureId, SlotProject } from "@slotmaker/config";
 
 export type Category = "assets" | "symbols" | "math" | "animation" | "sound" | "mobile" | "export";
 
@@ -190,11 +190,33 @@ export function checkMobile(project: SlotProject): Issue[] {
 export function checkTemplateMechanics(project: SlotProject): Issue[] {
   const issues: Issue[] = [];
   for (const mechanic of project.templateMeta?.mechanicStatus ?? []) {
-    if (mechanic.status === "implemented") continue;
+    let feature: ReturnType<typeof getFeatureDefinition>;
+    try {
+      feature = getFeatureDefinition(mechanic.featureId as FeatureId);
+    } catch {
+      issues.push({
+        category: "math",
+        severity: "warning",
+        message: `Unknown template mechanic "${mechanic.featureId}" is advertised in template metadata.`,
+        autoFixable: false,
+      });
+      continue;
+    }
+    const missingSupport = [
+      feature.runtimeSupport ? "" : "runtime",
+      feature.mathSupport ? "" : "math",
+      feature.uiPanelSupport ? "" : "UI panel",
+      feature.animationEvents.length > 0 ? "" : "animation events",
+      feature.soundEvents.length > 0 ? "" : "sound events",
+    ].filter(Boolean);
+    if (mechanic.status === "implemented" && feature.implementedStatus === "implemented" && missingSupport.length === 0) continue;
     issues.push({
       category: "math",
-      severity: mechanic.status === "planned" ? "warning" : "info",
-      message: `${mechanic.featureId} is ${mechanic.status}: ${mechanic.note}`,
+      severity: "warning",
+      message:
+        mechanic.status === "implemented"
+          ? `${feature.displayName} is advertised as implemented but is missing ${missingSupport.join(", ")} support.`
+          : `${feature.displayName} is advertised but ${mechanic.status}: ${mechanic.note}`,
       autoFixable: false,
     });
   }

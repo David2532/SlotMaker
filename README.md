@@ -97,6 +97,9 @@ debug dashboard. The intended first-time flow is:
 7. Create the project and continue in the Builder.
 
 ![Product UX Template Wizard](docs/product-ux-template-wizard.png)
+![Template Gallery Readiness](docs/template-gallery-readiness.png)
+![Golden Goal Rush Builder Features](docs/builder-golden-goal-rush.png)
+![Candy Cascade Builder Features](docs/builder-candy-cascade.png)
 
 ### Template system
 
@@ -105,16 +108,21 @@ labels: each template defines grid, win system, default RTP, volatility, symbols
 feature flags, math defaults, animation/sound presets, asset requirements,
 production blockers and supported preview states.
 
+Create is enabled only when all advertised mechanics have runtime, math,
+validator, event and UI support. Partial templates stay visible for product
+planning, but their Create action is disabled and the card lists what is
+missing. Mechanic badges are shown only for implemented mechanics.
+
 Current templates:
 
-| Template | Type | Status |
-| --- | --- | --- |
-| Golden Goal Rush | Cluster 6x5 | Implemented |
-| Gem Bonanza | Tumble multiplier | Partial multiplier/ante intent |
-| Ancient Book Adventure | Book-style 5x3 | Partial line/expanding-symbol intent |
-| Candy Cascade | Candy cluster | Partial sugar-rush multiplier intent |
-| Classic Fruits | Classic lines 5x3 | Partial line-pay runtime |
-| Gold Collector | Coin collector | Planned hold-and-win respins |
+| Template | Type | Logic readiness | Create |
+| --- | --- | --- | --- |
+| Golden Goal Rush | Cluster 6x5 | Fully implemented: cluster pays, cascades, scatter free spins, coin collector, bonus buy | Enabled |
+| Gem Bonanza | Tumble multiplier | Coming soon: progressive free-spin multiplier and ante bet are not implemented | Disabled |
+| Ancient Book Adventure | Book-style 5x3 | Partially implemented: line pays and expanding-symbol free spins are not implemented | Disabled |
+| Candy Cascade | Candy cluster | Fully implemented: cluster pays, cascades, scatter free spins; boosters are not advertised | Enabled |
+| Classic Fruits | Classic lines 5x3 | Partially implemented: line-pay runtime is not implemented | Disabled |
+| Gold Collector | Coin collector | Coming soon: hold-and-win respins are not implemented | Disabled |
 
 If a mechanic is not fully implemented, the template card and generated project
 show that status. The config keeps TODO warnings in `templateMeta`, and the

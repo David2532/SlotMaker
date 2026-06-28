@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadProject, type SlotProject } from "@slotmaker/config";
+import { canCreateTemplate, createProjectFromTemplate, loadProject, TEMPLATE_REGISTRY, type SlotProject } from "@slotmaker/config";
 import { exportBundle, serializeBundle } from "./index.js";
 import golden from "../../../projects/golden-goal-rush.json";
 
@@ -55,5 +55,15 @@ describe("exportBundle", () => {
     expect(res.blockers.some((b) => /production requires a real asset/.test(b))).toBe(true);
     // ...but can be forced.
     expect(exportBundle(project, { profile: "production", force: true }).ok).toBe(true);
+  });
+
+  it("demo-exports every create-enabled template and keeps production asset-gated", () => {
+    for (const template of TEMPLATE_REGISTRY.filter((t) => canCreateTemplate(t))) {
+      const p = createProjectFromTemplate(template.id);
+      expect(exportBundle(p, { profile: "demo" }).ok).toBe(true);
+      const production = exportBundle(p, { profile: "production" });
+      expect(production.ok).toBe(false);
+      expect(production.blockers.some((b) => /production requires a real asset/.test(b))).toBe(true);
+    }
   });
 });
