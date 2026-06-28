@@ -76,6 +76,12 @@ importers:
         specifier: workspace:*
         version: link:../slot-runtime
 
+  packages/asset-pipeline:
+    dependencies:
+      '@slotmaker/config':
+        specifier: workspace:*
+        version: link:../config
+
   packages/config:
     dependencies:
       zod:
@@ -84,6 +90,9 @@ importers:
 
   packages/exporter:
     dependencies:
+      '@slotmaker/asset-pipeline':
+        specifier: workspace:*
+        version: link:../asset-pipeline
       '@slotmaker/config':
         specifier: workspace:*
         version: link:../config
@@ -111,12 +120,18 @@ importers:
       '@slotmaker/animation-system':
         specifier: workspace:*
         version: link:../animation-system
+      '@slotmaker/asset-pipeline':
+        specifier: workspace:*
+        version: link:../asset-pipeline
       '@slotmaker/config':
         specifier: workspace:*
         version: link:../config
 
   packages/validator:
     dependencies:
+      '@slotmaker/asset-pipeline':
+        specifier: workspace:*
+        version: link:../asset-pipeline
       '@slotmaker/config':
         specifier: workspace:*
         version: link:../config

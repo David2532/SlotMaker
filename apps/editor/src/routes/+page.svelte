@@ -3,15 +3,22 @@
   import { loadProject, type SlotProject } from "@slotmaker/config";
   import { spin, type RoundResult } from "@slotmaker/slot-runtime";
   import { simulate, type SimResult } from "@slotmaker/math-engine";
-  import { buildTimeline, type Timeline } from "@slotmaker/animation-system";
+  import { buildTimeline, eventToSymbolState, type Timeline } from "@slotmaker/animation-system";
   import {
     autoSyncSounds,
     buildSoundCues,
     createSoundPlayer,
-    createHtmlAudioSink,
+    createToneSink,
+    resolveSoundCue,
     type SoundCue,
     type SoundPlayer,
   } from "@slotmaker/sound-system";
+  import {
+    buildAssetRegistry,
+    createGoldenGoalRushDevPack,
+    type AssetRegistry,
+  } from "@slotmaker/asset-pipeline";
+  import type { AnimationEvent, ExportProfile } from "@slotmaker/config";
   import { autoFix, computeHealth } from "@slotmaker/validator";
   import { exportBundle, serializeBundle } from "@slotmaker/exporter";
   import golden from "@project";
@@ -41,8 +48,17 @@
   let sim = $state<SimResult | null>(null);
   let simBusy = $state(false);
 
+  // Phase 2B: asset system. Demo resolution uses the dev pack (generated assets).
+  const devPack = createGoldenGoalRushDevPack();
+  let exportProfile = $state<ExportProfile>("demo");
+  const assetRegistry: AssetRegistry = $derived(buildAssetRegistry(project, { devPack }));
+
   const health = $derived(
-    computeHealth(project, sim ? { rtp: sim.rtp, hitFrequency: sim.hitFrequency, maxWin: sim.maxWin } : undefined),
+    computeHealth(
+      project,
+      sim ? { rtp: sim.rtp, hitFrequency: sim.hitFrequency, maxWin: sim.maxWin } : undefined,
+      { profile: exportProfile, devPack },
+    ),
   );
 
   const isPlaceholder = (f: string) => !f.includes("/") && !/^https?:/.test(f);
@@ -66,6 +82,10 @@
     }
     return cur;
   });
+  // Resolved render state driving the board (winning cells override to "win").
+  const boardState = $derived(eventToSymbolState((activeEvent ?? "static") as AnimationEvent));
+  const symbolAssetStatus = $derived(assetRegistry.completeness.symbolStates > 0 ? "real" : "generated");
+  const pctI = (n: number) => `${Math.round(n * 100)}%`;
 
   function buildMuts(r: RoundResult, tl: Timeline): Mut[] {
     const steps = r.steps;
@@ -146,7 +166,7 @@
   }
   function doExport() {
     const stats = sim ? { rtp: sim.rtp, hitFrequency: sim.hitFrequency, maxWin: sim.maxWin } : undefined;
-    const res = exportBundle(project, { stats, force: true });
+    const res = exportBundle(project, { profile: exportProfile, stats, devPack, force: true });
     const blob = new Blob([serializeBundle(res.bundle)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -158,9 +178,10 @@
 
   onMount(() => {
     // Resolver returns null for placeholder (bare) filenames → safe silent fallback.
+    // Demo audio uses synthesized tones for the generated (placeholder) cues.
     player = createSoundPlayer({
-      sink: createHtmlAudioSink("/sounds/"),
-      resolve: (f) => (isPlaceholder(f) ? null : f),
+      sink: createToneSink(),
+      resolve: (cue) => resolveSoundCue(project, cue.event as AnimationEvent, { devPack }).uri ?? null,
       masterVolume: masterVol,
     });
     syncPlayer();
@@ -182,7 +203,7 @@
 <div class="app">
   <header>
     <h1><span class="gold">SLOT</span> FACTORY</h1>
-    <span class="tag">Editor · Phase 2A</span>
+    <span class="tag">Editor · Phase 2B</span>
     <span class="spacer"></span>
     <span class="proj">{project.projectName}</span>
     <span class="muted">{project.template} · {project.theme}</span>
@@ -211,7 +232,7 @@
     </aside>
 
     <section class="stage">
-      <SlotBoard {project} grid={currentGrid} {highlight} />
+      <SlotBoard {project} grid={currentGrid} {highlight} renderState={boardState} assetStatus={symbolAssetStatus} />
       <div class="hud">
         <button class="spin" onclick={doSpin}>SPIN</button>
         <div class="readout">
@@ -254,10 +275,27 @@
       {#each health.categories as c (c.category)}
         <div class="hrow"><span>{c.category}</span><div class="bar"><div class="fill" style={`width:${c.score}%`}></div></div><b>{c.score}</b></div>
       {/each}
+
+      <h2>Assets <span class="score">{pctI(assetRegistry.completeness.overall)} real</span></h2>
+      <div class="badges">
+        <span class="b real">real {assetRegistry.counts.real}</span>
+        <span class="b gen">generated {assetRegistry.counts.generated}</span>
+        <span class="b ph">placeholder {assetRegistry.counts.placeholder}</span>
+        <span class="b miss">missing {assetRegistry.counts.missing}</span>
+      </div>
+      <div class="hrow"><span>symbols</span><div class="bar"><div class="fill" style={`width:${assetRegistry.completeness.symbolStates * 100}%`}></div></div><b>{pctI(assetRegistry.completeness.symbolStates)}</b></div>
+      <div class="hrow"><span>sounds</span><div class="bar"><div class="fill" style={`width:${assetRegistry.completeness.sounds * 100}%`}></div></div><b>{pctI(assetRegistry.completeness.sounds)}</b></div>
+      <div class="row"><span>Production</span><b class={assetRegistry.production.ready ? "on" : "off"}>{assetRegistry.production.ready ? "ready" : `blocked · ${assetRegistry.production.blockers.length} need real`}</b></div>
+
       <div class="actions">
         <button onclick={doAutoFix}>Auto-Fix</button>
-        <button class="primary" onclick={doExport}>Export JSON</button>
+        <span class="seg">
+          <button class="mini {exportProfile === 'demo' ? 'on' : ''}" onclick={() => (exportProfile = "demo")}>Demo</button>
+          <button class="mini {exportProfile === 'production' ? 'on' : ''}" onclick={() => (exportProfile = "production")}>Prod</button>
+        </span>
+        <button class="primary" onclick={doExport}>Export</button>
       </div>
+      <p class="muted small">{exportProfile} export · {assetRegistry.production.ready ? "production-ready" : "demo only (placeholders present)"}</p>
     </aside>
   </main>
 
@@ -348,7 +386,14 @@
   .hrow { display: grid; grid-template-columns: 70px 1fr 24px; align-items: center; gap: 8px; font-size: 12px; padding: 2px 0; }
   .bar { height: 7px; background: #16210f; border-radius: 4px; overflow: hidden; }
   .fill { height: 100%; background: linear-gradient(90deg, #2d6a4f, #f5c542); }
-  .actions { margin-top: 12px; }
+  .actions { margin-top: 12px; align-items: center; }
+  .seg { display: inline-flex; gap: 4px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .badges .b { font-size: 10px; padding: 2px 7px; border-radius: 8px; border: 1px solid #2b3a26; }
+  .badges .real { color: #2d9c6f; border-color: #1c5b40; }
+  .badges .gen { color: #c98a2b; border-color: #5a3f15; }
+  .badges .ph { color: #e8b923; border-color: #6b5418; }
+  .badges .miss { color: #e63946; border-color: #5a1d22; }
   .sndctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; font-size: 12px; }
   .sndctl .seg { display: inline-flex; gap: 4px; }
   .sndctl .chk { display: inline-flex; align-items: center; gap: 4px; }

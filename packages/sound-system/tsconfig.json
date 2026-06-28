@@ -6,5 +6,9 @@
     "outDir": "dist"
   },
   "include": ["src/**/*"],
-  "references": [{ "path": "../config" }, { "path": "../animation-system" }]
+  "references": [
+    { "path": "../config" },
+    { "path": "../animation-system" },
+    { "path": "../asset-pipeline" }
+  ]
 }

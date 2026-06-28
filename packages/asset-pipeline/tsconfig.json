@@ -6,9 +6,5 @@
     "outDir": "dist"
   },
   "include": ["src/**/*"],
-  "references": [
-    { "path": "../config" },
-    { "path": "../validator" },
-    { "path": "../asset-pipeline" }
-  ]
+  "references": [{ "path": "../config" }]
 }

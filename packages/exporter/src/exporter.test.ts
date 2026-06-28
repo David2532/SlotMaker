@@ -31,4 +31,25 @@ describe("exportBundle", () => {
     const json = serializeBundle(bundle);
     expect(() => JSON.parse(json)).not.toThrow();
   });
+
+  it("includes an asset manifest with status counts", () => {
+    const { bundle } = exportBundle(project, { profile: "demo" });
+    expect(bundle.manifest.profile).toBe("demo");
+    expect(bundle.assets.assets.length).toBeGreaterThan(0);
+    expect(bundle.assets.counts.generated).toBeGreaterThan(0);
+  });
+
+  it("demo profile allows generated/placeholder assets", () => {
+    const res = exportBundle(project, { profile: "demo" });
+    expect(res.ok).toBe(true);
+    expect(res.bundle.assets.productionReady).toBe(false);
+  });
+
+  it("production profile blocks when critical assets are not real", () => {
+    const res = exportBundle(project, { profile: "production" });
+    expect(res.ok).toBe(false);
+    expect(res.blockers.some((b) => /production requires a real asset/.test(b))).toBe(true);
+    // ...but can be forced.
+    expect(exportBundle(project, { profile: "production", force: true }).ok).toBe(true);
+  });
 });

@@ -12,4 +12,5 @@ export {
   type MathStats,
 } from "./checks.js";
 export { computeHealth, type HealthReport, type CategoryScore } from "./health.js";
+export { checkAssetResolution, type AssetCheckOptions } from "./assets.js";
 export { autoFix, type AutoFixResult } from "./autofix.js";

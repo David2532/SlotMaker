@@ -45,8 +45,8 @@ export interface PlayResult {
 export interface SoundPlayerOptions {
   /** Audio backend. Omit for a silent "simulate" player (no crashes, no audio). */
   sink?: AudioSink;
-  /** Resolve a cue file to a real URL; return null if it's a placeholder/missing. */
-  resolve?: (file: string) => string | null;
+  /** Resolve a cue to a playable URL/uri; return null if it's a placeholder/missing. */
+  resolve?: (cue: SoundCue) => string | null;
   masterVolume?: number;
 }
 
@@ -77,7 +77,7 @@ export function createSoundPlayer(opts: SoundPlayerOptions = {}): SoundPlayer {
   const mutedCats = new Set<SoundCategory>();
   const missing = new Set<string>();
   const active = new Map<SoundCategory, Set<AudioHandle>>();
-  const resolve = opts.resolve ?? ((f: string) => f);
+  const resolve = opts.resolve ?? ((c: SoundCue) => c.file);
   const sink = opts.sink;
 
   const track = (cat: SoundCategory, h: AudioHandle) => {
@@ -92,7 +92,7 @@ export function createSoundPlayer(opts: SoundPlayerOptions = {}): SoundPlayer {
       if (muted) return { played: false, volume: 0, category, reason: "muted" };
       if (mutedCats.has(category)) return { played: false, volume: 0, category, reason: "category-muted" };
 
-      const url = resolve(cue.file);
+      const url = resolve(cue);
       if (url == null) {
         missing.add(cue.file);
         return { played: false, volume: 0, category, reason: "missing-file" };

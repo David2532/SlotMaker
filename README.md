@@ -45,9 +45,10 @@ slotmaker/
     slot-runtime/      # RNG, grid, cluster detection, cascades, spin orchestration
     math-engine/       # seeded Monte-Carlo simulation + balance suggestions
     animation-system/  # preset registry + buildTimeline() (Phase 2)
-    sound-system/      # sound packs + buildSoundCues() / autoSyncSounds() (Phase 2)
+    sound-system/      # sound packs, cues, audio runtime, sound resolver (Phase 2)
+    asset-pipeline/    # asset resolver, dev pack, registry, manifest (Phase 2B)
     validator/         # checks, health score, safe auto-fix
-    exporter/          # validated, self-describing JSON bundle
+    exporter/          # validated bundle + asset manifest, demo/production gate
   apps/
     editor/         # SvelteKit + PixiJS — builder, math lab, validator, export
   templates/cluster-6x5/      # skin-agnostic mechanic descriptor
@@ -110,7 +111,37 @@ balance assistant flags drift instead of trusting a single run.
 
 ---
 
-## Phase 2A — Animation Timeline + Sound Cue Foundation (this branch)
+## Phase 2B — Audio + Symbol-State Asset System (this branch)
+
+Phase 2B builds the **asset system**, not final content. Every asset slot resolves
+to one of four explicit statuses — `real`, `generated`, `placeholder`, `missing` —
+so a project is always honest about what still needs real art/audio. No fake
+binaries are committed.
+
+![Phase 2B editor](docs/phase-2b-editor.png)
+
+- `@slotmaker/asset-pipeline` — the **resolver** (requested state → real → static
+  fallback → generated → missing), a procedural **Golden Goal Rush dev pack**
+  (`gen:` descriptors, never real files), an **asset registry** with completeness
+  metrics, and a serializable **manifest**. `assessProduction()` re-resolves
+  strictly (real assets only) to list what blocks a production build.
+- `@slotmaker/sound-system` — `resolveSoundCue()` (real file → generated tone →
+  placeholder → missing) and a guarded **WebAudio tone sink** so generated cues are
+  audible in demo without any files.
+- **Exporter** — `demo` vs `production` profiles. Demo allows generated/placeholder
+  assets (manifest records exactly what); **production blocks** any non-real
+  critical asset (unless forced). Bundles now carry the asset manifest + status.
+- **Validator** — distinguishes generated-used (info) / placeholder-used / missing
+  critical / production-blocked, under the `assets` health category.
+- **Editor** — board renders the resolved render state per tile with a status dot;
+  demo audio plays synthesized tones; an **Assets** panel shows real/generated/
+  placeholder/missing badges, symbol/sound completeness, and **production readiness**
+  with a demo/production export toggle.
+
+**Deferred to 2C** (per scope): real sound assets + final audio playback, the
+symbol-state asset import/normalize pipeline, and Golden Goal Rush art polish.
+
+## Phase 2A — Animation Timeline + Sound Cue Foundation
 
 Event-based **animation** and **sound** systems, both fed by the exact same spin
 step sequence as the live preview — so visuals, timeline and audio can never drift.

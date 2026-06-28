@@ -7,8 +7,19 @@
     project: SlotProject;
     grid: string[];
     highlight: Set<number>;
+    /** Current global render state (static/spin/land/win) from the timeline. */
+    renderState?: string;
+    /** Status of the resolved symbol assets ("generated" in demo). */
+    assetStatus?: string;
   }
-  let { project, grid, highlight }: Props = $props();
+  let { project, grid, highlight, renderState = "static", assetStatus = "generated" }: Props = $props();
+
+  const STATUS_DOT: Record<string, number> = {
+    real: 0x2d9c6f,
+    generated: 0xc98a2b,
+    placeholder: 0xe8b923,
+    missing: 0xe63946,
+  };
 
   let host: HTMLDivElement;
   let app: Application | null = null;
@@ -52,6 +63,22 @@
       t.anchor.set(0.5);
       t.position.set(x + cell / 2, y + cell / 2);
       board.addChild(t);
+
+      // Resolved render state (per-cell: winning cells are in the "win" state).
+      const cellState = won ? "win" : renderState;
+      const st = new Text({
+        text: cellState,
+        style: new TextStyle({ fill: 0x0b0f0a, fontFamily: "Arial", fontSize: 9, fontWeight: "bold" }),
+      });
+      st.position.set(x + 8, y + 8);
+      st.alpha = 0.65;
+      board.addChild(st);
+
+      // Asset-status dot (top-right) — shows assets are generated/real/etc.
+      const dot = new Graphics();
+      dot.circle(x + cell - 12, y + 12, 4);
+      dot.fill({ color: STATUS_DOT[assetStatus] ?? 0x888888 });
+      board.addChild(dot);
     }
   }
 
@@ -83,10 +110,12 @@
     };
   });
 
-  // Redraw whenever the grid or highlight changes.
+  // Redraw whenever the grid, highlight or render state changes.
   $effect(() => {
     void grid;
     void highlight;
+    void renderState;
+    void assetStatus;
     if (ready) draw();
   });
 </script>
