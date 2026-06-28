@@ -41,11 +41,13 @@ Editor and runtime are strictly separated. The config is the only shared state.
 ```
 slotmaker/
   packages/
-    config/         # SlotProject schema + validation (the source of truth)
-    slot-runtime/   # RNG, grid, cluster detection, cascades, spin orchestration
-    math-engine/    # seeded Monte-Carlo simulation + balance suggestions
-    validator/      # checks, health score, safe auto-fix
-    exporter/       # validated, self-describing JSON bundle
+    config/            # SlotProject schema + validation (the source of truth)
+    slot-runtime/      # RNG, grid, cluster detection, cascades, spin orchestration
+    math-engine/       # seeded Monte-Carlo simulation + balance suggestions
+    animation-system/  # preset registry + buildTimeline() (Phase 2)
+    sound-system/      # sound packs + buildSoundCues() / autoSyncSounds() (Phase 2)
+    validator/         # checks, health score, safe auto-fix
+    exporter/          # validated, self-describing JSON bundle
   apps/
     editor/         # SvelteKit + PixiJS — builder, math lab, validator, export
   templates/cluster-6x5/      # skin-agnostic mechanic descriptor
@@ -108,10 +110,44 @@ balance assistant flags drift instead of trusting a single run.
 
 ---
 
+## Phase 2A — Animation Timeline + Sound Cue Foundation (this branch)
+
+Event-based **animation** and **sound** systems, both fed by the exact same spin
+step sequence as the live preview — so visuals, timeline and audio can never drift.
+
+![Phase 2A editor](docs/phase-2a-editor.png)
+
+- `@slotmaker/animation-system` — `buildTimeline(project, round)` turns a played
+  round into ordered, timed events (`spin_start`, staggered `reel_drop` per
+  column, `symbol_land`, `win_detected` / `cluster_remove` / `cascade_drop` per
+  cascade, `scatter_land`, `bonus_trigger`, `coin_collect`, `big_win_start`),
+  plus a swappable preset registry and `eventToSymbolState()`.
+- `@slotmaker/sound-system` — `buildSoundCues(project, timeline)` schedules sounds
+  against the timeline (event start + binding delay); `autoSyncSounds()` fills
+  unbound events from a pack; **`createSoundPlayer()`** is a placeholder-safe audio
+  runtime (`playCue`, `stopCategory`, `setMasterVolume`, `muteCategory`) that never
+  crashes on missing/placeholder files — it records a warning instead.
+- **Symbol states** — the config now models per-symbol render states
+  (`static / spin / land / win / disabled`); runtime, editor and validator all
+  understand them.
+- **Validator hardening** — distinguishes missing sound binding vs placeholder file
+  vs empty path vs out-of-range volume vs negative delay vs unmapped critical
+  event; adds a **symbols** health category for state coverage; checks animation
+  durations/delays.
+- **Editor** — board plays back off one timeline clock with **Play / Pause / Reset**
+  and a live "active event" readout; **Animation Timeline** (lanes + playhead) and
+  **Sound Timeline** (Simulate / Play-Audio toggle, Mute All, master volume,
+  placeholder badge) panels.
+- **CI** — GitHub Actions runs typecheck, tests, editor build, and validate/export
+  smokes against Golden Goal Rush on every PR to `main`.
+
+**Not yet in Phase 2A** (deferred): full real-audio playback with real files, the
+final symbol-state asset pipeline, and real sound-asset import.
+
 ## Roadmap (next phases)
 
-- **Phase 2** — animation timeline, sound timeline, symbol states, asset pipeline,
-  responsive HUD editor, move simulation into a Web Worker.
+- **Phase 2B** — asset pipeline + real audio/asset import, symbol-state asset
+  wiring, responsive HUD editor, move simulation into a Web Worker.
 - **Phase 3** — 1M/10M parallel simulation, volatility graphs, bonus-buy & ante
   calculators, auto-balance that edits weights and re-simulates.
 - **Phase 4** — AI agents (theme/asset/animation/sound/QA), one-click reskin,

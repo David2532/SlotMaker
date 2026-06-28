@@ -21,7 +21,24 @@ export const PayTier = z.object({
 });
 export type PayTier = z.infer<typeof PayTier>;
 
-/** Symbol definition: identity + skin hooks + math weights + payouts. */
+/** The five render states every symbol can express. */
+export const SymbolState = z.enum(["static", "spin", "land", "win", "disabled"]);
+export type SymbolState = z.infer<typeof SymbolState>;
+
+export const ALL_SYMBOL_STATES: SymbolState[] = ["static", "spin", "land", "win", "disabled"];
+export const OPTIONAL_SYMBOL_STATES: SymbolState[] = ["spin", "land", "win", "disabled"];
+
+/** Per-state asset slots. Phase 2A stores paths only; the pipeline fills them later. */
+export const AssetStates = z.object({
+  static: z.string().optional(),
+  spin: z.string().optional(),
+  land: z.string().optional(),
+  win: z.string().optional(),
+  disabled: z.string().optional(),
+});
+export type AssetStates = z.infer<typeof AssetStates>;
+
+/** Symbol definition: identity + skin hooks + math weights + payouts + states. */
 export const SymbolDef = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -36,6 +53,8 @@ export const SymbolDef = z.object({
   pays: z.array(PayTier).default([]),
   /** Coin face value (in bet multiples). Only meaningful for `kind: "coin"`. */
   coinValue: z.number().min(0).optional(),
+  /** Per-symbol state asset slots (static/spin/land/win/disabled). */
+  states: AssetStates.optional(),
 });
 export type SymbolDef = z.infer<typeof SymbolDef>;
 
@@ -81,16 +100,6 @@ export const MathConfig = z.object({
   coinCollectThreshold: z.number().int().min(1).default(4),
 });
 export type MathConfig = z.infer<typeof MathConfig>;
-
-/** Per-symbol-state asset slots. Phase 1 stores paths only; pipeline fills them later. */
-export const AssetStates = z.object({
-  static: z.string().optional(),
-  spin: z.string().optional(),
-  land: z.string().optional(),
-  win: z.string().optional(),
-  disabled: z.string().optional(),
-});
-export type AssetStates = z.infer<typeof AssetStates>;
 
 export const AssetRegistry = z.object({
   background: z.string().optional(),

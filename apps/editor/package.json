@@ -10,10 +10,12 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
+    "@slotmaker/animation-system": "workspace:*",
     "@slotmaker/config": "workspace:*",
     "@slotmaker/exporter": "workspace:*",
     "@slotmaker/math-engine": "workspace:*",
     "@slotmaker/slot-runtime": "workspace:*",
+    "@slotmaker/sound-system": "workspace:*",
     "@slotmaker/validator": "workspace:*",
     "pixi.js": "^8.6.6"
   },

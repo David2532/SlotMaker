@@ -20,6 +20,9 @@ importers:
 
   apps/editor:
     dependencies:
+      '@slotmaker/animation-system':
+        specifier: workspace:*
+        version: link:../../packages/animation-system
       '@slotmaker/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -32,6 +35,9 @@ importers:
       '@slotmaker/slot-runtime':
         specifier: workspace:*
         version: link:../../packages/slot-runtime
+      '@slotmaker/sound-system':
+        specifier: workspace:*
+        version: link:../../packages/sound-system
       '@slotmaker/validator':
         specifier: workspace:*
         version: link:../../packages/validator
@@ -61,6 +67,15 @@ importers:
         specifier: ^6.0.7
         version: 6.4.3(tsx@4.22.4)
 
+  packages/animation-system:
+    dependencies:
+      '@slotmaker/config':
+        specifier: workspace:*
+        version: link:../config
+      '@slotmaker/slot-runtime':
+        specifier: workspace:*
+        version: link:../slot-runtime
+
   packages/config:
     dependencies:
       zod:
@@ -87,6 +102,15 @@ importers:
 
   packages/slot-runtime:
     dependencies:
+      '@slotmaker/config':
+        specifier: workspace:*
+        version: link:../config
+
+  packages/sound-system:
+    dependencies:
+      '@slotmaker/animation-system':
+        specifier: workspace:*
+        version: link:../animation-system
       '@slotmaker/config':
         specifier: workspace:*
         version: link:../config

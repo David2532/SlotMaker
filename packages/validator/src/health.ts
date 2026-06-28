@@ -1,7 +1,7 @@
 import type { SlotProject } from "@slotmaker/config";
 import { collectIssues, type Category, type Issue, type MathStats } from "./checks.js";
 
-const CATEGORIES: Category[] = ["assets", "math", "animation", "sound", "mobile", "export"];
+const CATEGORIES: Category[] = ["assets", "symbols", "math", "animation", "sound", "mobile", "export"];
 
 const PENALTY = { error: 35, warning: 12, info: 0 } as const;
 
