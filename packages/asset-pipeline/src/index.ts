@@ -20,3 +20,12 @@ export {
   type ProductionAssessment,
 } from "./registry.js";
 export { buildAssetManifest, type AssetManifest } from "./manifest.js";
+export {
+  importAssets,
+  type ImportFile,
+  type ImportOptions,
+  type ImportResult,
+  type ImportedAsset,
+  type ImportIssue,
+  type NormalizePlan,
+} from "./import.js";
