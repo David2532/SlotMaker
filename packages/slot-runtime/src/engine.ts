@@ -122,6 +122,29 @@ export function playGrid(
 }
 
 /**
+ * Play the free-spins feature in isolation (the awarded round). Used both by a
+ * normal triggered round and by the Bonus Buy calculator, which needs the
+ * feature's value without the base game.
+ */
+export function playFreeSpins(
+  project: SlotProject,
+  table: WeightedTable,
+  rng: Rng,
+): { win: number; coinWin: number } {
+  const fs = project.math.freeSpins;
+  let win = 0;
+  let coinWin = 0;
+  for (let i = 0; i < fs.spinsAwarded; i++) {
+    const play = playGrid(project, table, rng, fillGrid(project, table, rng));
+    win += play.win * fs.multiplier;
+    if (project.features.coinCollector && play.coinCount >= project.math.coinCollectThreshold) {
+      coinWin += play.coinValue;
+    }
+  }
+  return { win, coinWin };
+}
+
+/**
  * Play a full round: one base spin (with cascades), then resolve features —
  * free spins (scatter trigger) and the coin collector. Applies the maxWin cap.
  *
@@ -149,13 +172,9 @@ export function spinRound(
   if (project.features.freeSpins && base.scatterCount >= fs.triggerScatters) {
     freeSpinsTriggered = true;
     freeSpinsCount = fs.spinsAwarded;
-    for (let i = 0; i < fs.spinsAwarded; i++) {
-      const fsPlay = playGrid(project, table, rng, fillGrid(project, table, rng));
-      freeSpinsWin += fsPlay.win * fs.multiplier;
-      if (project.features.coinCollector && fsPlay.coinCount >= project.math.coinCollectThreshold) {
-        coinWin += fsPlay.coinValue;
-      }
-    }
+    const feature = playFreeSpins(project, table, rng);
+    freeSpinsWin += feature.win;
+    coinWin += feature.coinWin;
   }
 
   const rawTotal = baseWin + freeSpinsWin + coinWin;

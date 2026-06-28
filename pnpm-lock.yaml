@@ -96,6 +96,9 @@ importers:
       '@slotmaker/config':
         specifier: workspace:*
         version: link:../config
+      '@slotmaker/math-engine':
+        specifier: workspace:*
+        version: link:../math-engine
       '@slotmaker/validator':
         specifier: workspace:*
         version: link:../validator
@@ -135,6 +138,9 @@ importers:
       '@slotmaker/config':
         specifier: workspace:*
         version: link:../config
+      '@slotmaker/math-engine':
+        specifier: workspace:*
+        version: link:../math-engine
 
 packages:
 

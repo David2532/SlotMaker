@@ -15,6 +15,7 @@ export {
 } from "./clusters.js";
 export {
   playGrid,
+  playFreeSpins,
   spinRound,
   spin,
   type SpinStep,

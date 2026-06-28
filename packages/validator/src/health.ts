@@ -1,6 +1,8 @@
 import type { SlotProject } from "@slotmaker/config";
 import { collectIssues, type Category, type Issue, type MathStats } from "./checks.js";
 import { checkAssetResolution, type AssetCheckOptions } from "./assets.js";
+import { checkMathReport } from "./mathreport.js";
+import type { MathReport } from "@slotmaker/math-engine";
 
 const CATEGORIES: Category[] = ["assets", "symbols", "math", "animation", "sound", "mobile", "export"];
 
@@ -27,8 +29,13 @@ export function computeHealth(
   project: SlotProject,
   stats?: MathStats,
   assetOptions?: AssetCheckOptions,
+  mathReport?: MathReport,
 ): HealthReport {
-  const issues = [...collectIssues(project, stats), ...checkAssetResolution(project, assetOptions)];
+  const issues = [
+    ...collectIssues(project, stats),
+    ...checkAssetResolution(project, assetOptions),
+    ...checkMathReport(project, mathReport),
+  ];
   const categories: CategoryScore[] = CATEGORIES.map((category) => {
     const own = issues.filter((i) => i.category === category);
     const lost = own.reduce((s, i) => s + PENALTY[i.severity], 0);

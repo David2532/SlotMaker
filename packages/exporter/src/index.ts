@@ -6,6 +6,7 @@ import {
   type AssetManifest,
   type DevPack,
 } from "@slotmaker/asset-pipeline";
+import type { MathReport } from "@slotmaker/math-engine";
 
 export interface ExportManifest {
   format: "slotmaker-bundle";
@@ -25,6 +26,8 @@ export interface SlotBundle {
   project: SlotProject;
   /** Asset registry + status report (Phase 2B). */
   assets: AssetManifest;
+  /** Measured math report (Phase 3), or null if the slot was never simulated. */
+  math: MathReport | null;
 }
 
 export interface ExportResult {
@@ -45,6 +48,8 @@ export interface ExportOptions {
   realAssets?: ReadonlySet<string>;
   /** Dev pack used to fill demo assets. Defaults to the Golden Goal Rush pack. */
   devPack?: DevPack;
+  /** Measured math report to embed + validate against (Phase 3). */
+  mathReport?: MathReport;
   now?: () => Date;
 }
 
@@ -59,7 +64,7 @@ export interface ExportOptions {
  */
 export function exportBundle(project: SlotProject, opts: ExportOptions = {}): ExportResult {
   const profile: ExportProfile = opts.profile ?? "demo";
-  const health = computeHealth(project, opts.stats);
+  const health = computeHealth(project, opts.stats, undefined, opts.mathReport);
 
   // Demo resolves with the dev pack (generated assets ok); production resolves
   // strictly (real assets only) so the manifest tells the truth for shipping.
@@ -96,6 +101,7 @@ export function exportBundle(project: SlotProject, opts: ExportOptions = {}): Ex
     },
     project,
     assets,
+    math: opts.mathReport ?? null,
   };
 
   return { ok: exportReady || opts.force === true, bundle, blockers };

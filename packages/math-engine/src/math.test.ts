@@ -36,10 +36,10 @@ describe("simulate", () => {
 });
 
 describe("suggestBalance", () => {
-  it("produces at least one RTP-oriented suggestion", () => {
+  it("produces at least one RTP-oriented suggestion with an impact note", () => {
     const r = simulate(project, { spins: 5000, seed: 2 });
     const tips = suggestBalance(project, r);
     expect(tips.length).toBeGreaterThan(0);
-    expect(tips.some((t) => t.message.toLowerCase().includes("rtp"))).toBe(true);
+    expect(tips.some((t) => `${t.action} ${t.impact}`.toLowerCase().includes("rtp"))).toBe(true);
   });
 });

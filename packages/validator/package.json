@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@slotmaker/config": "workspace:*",
-    "@slotmaker/asset-pipeline": "workspace:*"
+    "@slotmaker/asset-pipeline": "workspace:*",
+    "@slotmaker/math-engine": "workspace:*"
   }
 }

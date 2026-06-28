@@ -43,7 +43,7 @@ slotmaker/
   packages/
     config/            # SlotProject schema + validation (the source of truth)
     slot-runtime/      # RNG, grid, cluster detection, cascades, spin orchestration
-    math-engine/       # seeded Monte-Carlo simulation + balance suggestions
+    math-engine/       # Monte-Carlo sim, multi-seed, volatility, bonus-buy, report (Phase 3)
     animation-system/  # preset registry + buildTimeline() (Phase 2)
     sound-system/      # sound packs, cues, audio runtime, sound resolver (Phase 2)
     asset-pipeline/    # asset resolver, dev pack, registry, manifest, importer (Phase 2B/2C)
@@ -111,7 +111,42 @@ balance assistant flags drift instead of trusting a single run.
 
 ---
 
-## Phase 2C — Golden Goal Rush Feel Polish (this branch)
+## Phase 3 — Heavy Math Lab (this branch)
+
+Prove the slot's math fast, with confidence — not a single RTP number you have to
+trust. All simulation is seeded and reproducible; the editor runs large sims in a
+**Web Worker** so it never freezes.
+
+![Phase 3 Math Lab](docs/phase-3-math-lab.png)
+
+- **Worker simulation** — `apps/editor/src/lib/sim.worker.ts` runs 1k / 10k / 100k /
+  **1M** off the main thread (verified: the UI stays responsive — you can SPIN
+  mid-simulation).
+- **Multi-seed** — `multiSeedSimulate()` runs N seeds and reports mean / min / max /
+  std-dev RTP, a **95% confidence band**, and hit/bonus-frequency ranges.
+- **Confidence report** — target vs observed RTP, the band, sample size, seed count,
+  and a **low-sample warning** below 100k spins.
+- **Win distribution** — buckets `0x / 0.01–1 / 1–5 / 5–20 / 20–100 / 100–500 / 500+`,
+  plus dead / small / medium / big win rates and max win.
+- **Feature contribution** — base / free spins / coin, in RTP %.
+- **Volatility score** — per-spin std-dev + skew + big-win dependency + feature
+  dependency → a practical `low/medium/high/extreme` label, compared to config.
+- **Bonus Buy calculator** — `analyzeBonusBuy()` simulates the feature in isolation:
+  expected value, fair price, configured price, buy RTP, house edge, and warnings
+  when a buy is +EV or mispriced.
+- **Auto-balance suggestions** — concrete, impact-annotated proposals (weights, pays,
+  trigger chance, coin frequency, max-win cap, volatility). Suggestions only — the
+  simulator decides.
+- **Math report export** — bundles now embed a full `math` report (config, sample,
+  RTP confidence, distribution, contribution, volatility, bonus-buy, warnings,
+  suggestions); the validator warns when it's missing, low-sample, off-target, etc.
+
+```bash
+pnpm sim                       # quick single-seed report
+pnpm export projects/golden-goal-rush.json   # multi-seed report embedded in the bundle
+```
+
+## Phase 2C — Golden Goal Rush Feel Polish
 
 Make the slot *feel* good — without faking real content. All procedural visuals
 and tones still resolve as `generated`; production stays blocked until real assets
